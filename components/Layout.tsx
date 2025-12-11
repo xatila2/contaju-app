@@ -30,7 +30,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { DateRangePicker } from './DateRangePicker';
 import { useTransactions } from '../context/TransactionContext';
 import { useAuth } from '../context/AuthContext';
-import { COMPANY_INFO } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -74,7 +73,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { transactions, notificationSettings } = useTransactions();
+  const { transactions, notificationSettings, companyName } = useTransactions();
   const { user, signOut } = useAuth();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -377,7 +376,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
             <div className="hidden md:flex items-center space-x-2 text-sm text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-700">
               <Building2 size={14} className="text-zinc-400" />
-              <span className="font-medium">{COMPANY_INFO.name}</span>
+              <span className="font-medium">{companyName || 'Minha Empresa'}</span>
               <span className="text-zinc-300 dark:text-zinc-600">|</span>
               <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-medium ${isOnline
                 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/50'

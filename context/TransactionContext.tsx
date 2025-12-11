@@ -41,6 +41,7 @@ interface TransactionContextType {
 
     // Actions
     handleSaveTransaction: (tx: Transaction) => void;
+    companyName: string;
     handleDeletePurchase: (purchaseId: string) => void;
     handleSavePurchase: (purchase: Purchase, newTransactions: Transaction[]) => void;
     handleQuickStatusUpdate: (txId: string, updates: Partial<Transaction>) => void;
@@ -110,6 +111,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     const [companySettings, setCompanySettings] = useState<CompanySettings>({
         capitalGiroNecessario: 0
     });
+    const [companyName, setCompanyName] = useState<string>('');
 
     // --- SUPABASE DATA LOADING ---
     const ensureCompany = async () => {
@@ -192,12 +194,15 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 supabase.from('credit_card_transactions').select('*').eq('company_id', cid),
                 supabase.from('budgets').select('*').eq('company_id', cid),
                 supabase.from('purchases').select('*').eq('company_id', cid),
-                supabase.from('companies').select('settings, capital_giro_necessario, notification_settings').eq('id', cid).single()
+                supabase.from('companies').select('name, settings, capital_giro_necessario, notification_settings').eq('id', cid).single()
             ]);
 
             // Set Settings
             const companyData = settingsResult?.data as any;
             if (companyData) {
+                if (companyData.name) {
+                    setCompanyName(companyData.name);
+                }
                 if (companyData.capital_giro_necessario) {
                     setCompanySettings(prev => ({ ...prev, capitalGiroNecessario: companyData.capital_giro_necessario }));
                 }
@@ -762,6 +767,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         setBankStatementLines,
         setReconciliationMatches,
         handleSaveTransaction,
+        companyName,
         handleDeletePurchase,
         handleSavePurchase,
         handleQuickStatusUpdate,
