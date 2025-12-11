@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../src/lib/supabase';
-import { LayoutDashboard, Loader2, Mail, Lock, ArrowRight, User } from 'lucide-react';
+import { Wallet, Loader2, Mail, Lock, ArrowRight, User } from 'lucide-react';
 
 export const Register: React.FC = () => {
     const navigate = useNavigate();
@@ -45,8 +45,8 @@ export const Register: React.FC = () => {
             <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
                 <div className="p-8">
                     <div className="flex justify-center mb-8">
-                        <div className="bg-zinc-900 dark:bg-white p-3 rounded-xl">
-                            <LayoutDashboard className="text-white dark:text-zinc-900" size={32} />
+                        <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 p-3 rounded-xl shadow-lg shadow-yellow-500/20">
+                            <Wallet className="text-black" size={32} />
                         </div>
                     </div>
 

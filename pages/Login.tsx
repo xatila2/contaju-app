@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../src/lib/supabase';
-import { LayoutDashboard, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Wallet, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 
 export const Login: React.FC = () => {
     const navigate = useNavigate();
@@ -37,13 +37,13 @@ export const Login: React.FC = () => {
             <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
                 <div className="p-8">
                     <div className="flex justify-center mb-8">
-                        <div className="bg-zinc-900 dark:bg-white p-3 rounded-xl">
-                            <LayoutDashboard className="text-white dark:text-zinc-900" size={32} />
+                        <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 p-3 rounded-xl shadow-lg shadow-yellow-500/20">
+                            <Wallet className="text-black" size={32} />
                         </div>
                     </div>
 
                     <h2 className="text-2xl font-bold text-center text-zinc-900 dark:text-white mb-2">Bem-vindo de volta</h2>
-                    <p className="text-center text-zinc-500 dark:text-zinc-400 mb-8">Acesse sua conta para gerenciar suas finanças.</p>
+                    <p className="text-center text-zinc-500 dark:text-zinc-400 mb-8 font-medium">Gestão Financeira Inteligente Contaju</p>
 
                     {error && (
                         <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg text-sm text-rose-600 dark:text-rose-400">

@@ -20,13 +20,7 @@ import { NotificationSystem } from './components/NotificationSystem';
 import { PageView, Transaction } from './types';
 import { TransactionProvider, useTransactions } from './context/TransactionContext';
 
-const AppContent = () => {
-  const navigate = useNavigate();
-  const {
-    transactions, categories, bankAccounts, costCenters, notificationSettings, categoryRules,
-    handleSaveTransaction, handleAddCategoryRule
-  } = useTransactions();
-
+const MainLayout = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('finflux_theme');
     if (savedTheme) return savedTheme as 'light' | 'dark';
@@ -38,10 +32,16 @@ const AppContent = () => {
     end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
   });
 
+  const {
+    transactions, categories, bankAccounts, costCenters, notificationSettings, categoryRules,
+    handleSaveTransaction, handleAddCategoryRule
+  } = useTransactions();
+
   const [selectedBankFilter, setSelectedBankFilter] = useState<string | undefined>(undefined);
   const [highlightTransactionId, setHighlightTransactionId] = useState<string | null>(null);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -66,12 +66,6 @@ const AppContent = () => {
     navigate('/transactions');
   };
 
-  const handleNavigateToTransaction = (txId: string) => {
-    setHighlightTransactionId(txId);
-    navigate('/transactions');
-    setTimeout(() => setHighlightTransactionId(null), 5000);
-  };
-
   const handleEditTransaction = (tx: Transaction) => {
     setEditingTransaction(tx);
     setIsTransactionModalOpen(true);
@@ -92,9 +86,6 @@ const AppContent = () => {
         onDateRangeChange={(start, end) => setGlobalDateRange({ start, end })}
       >
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-
           <Route path="/" element={
             <PrivateRoute>
               <Dashboard
@@ -143,6 +134,16 @@ const AppContent = () => {
         onAddCategoryRule={handleAddCategoryRule}
       />
     </>
+  );
+};
+
+const AppContent = () => {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/*" element={<MainLayout />} />
+    </Routes>
   );
 };
 
