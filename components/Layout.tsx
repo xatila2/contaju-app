@@ -23,11 +23,13 @@ import {
   ChevronRight,
   BarChart3,
   Landmark,
-  CreditCard
+  CreditCard,
+  LogOut
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DateRangePicker } from './DateRangePicker';
 import { useTransactions } from '../context/TransactionContext';
+import { useAuth } from '../context/AuthContext';
 import { COMPANY_INFO } from '../constants';
 
 interface LayoutProps {
@@ -73,6 +75,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const { transactions, notificationSettings } = useTransactions();
+  const { user, signOut } = useAuth();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -302,15 +305,28 @@ export const Layout: React.FC<LayoutProps> = ({
           </nav>
 
           <div className="p-4 border-t border-zinc-800/50">
-            <div onClick={() => handleNavigation('/settings?tab=users')} className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} bg-zinc-900 p-2 rounded-lg cursor-pointer hover:bg-zinc-800 transition border border-zinc-800`}>
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center text-xs font-bold text-black shadow-md shrink-0">JD</div>
-              {!isCollapsed && (
-                <div className="flex-1 overflow-hidden animate-in fade-in">
-                  <p className="text-sm font-medium text-white truncate">João D.</p>
-                  <p className="text-xs text-zinc-500 truncate">CFO</p>
+            <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} bg-zinc-900 p-2 rounded-lg border border-zinc-800`}>
+              <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleNavigation('/settings?tab=users')}>
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center text-xs font-bold text-black shadow-md shrink-0">
+                  {user?.email?.slice(0, 2).toUpperCase() || 'US'}
                 </div>
+                {!isCollapsed && (
+                  <div className="overflow-hidden animate-in fade-in">
+                    <p className="text-sm font-medium text-white truncate max-w-[100px]" title={user?.email || ''}>{user?.email?.split('@')[0] || 'Usuario'}</p>
+                    <p className="text-xs text-zinc-500 truncate">Admin</p>
+                  </div>
+                )}
+              </div>
+
+              {!isCollapsed && (
+                <button
+                  onClick={signOut}
+                  className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-zinc-800 rounded transition-colors"
+                  title="Sair"
+                >
+                  <LogOut size={16} />
+                </button>
               )}
-              {!isCollapsed && <ChevronDown size={14} className="text-zinc-500" />}
             </div>
           </div>
         </div>
