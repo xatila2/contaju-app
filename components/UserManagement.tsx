@@ -40,28 +40,7 @@ const moduleNames: Record<PermissionModule, string> = {
 };
 
 export const UserManagement: React.FC = () => {
-    const [users, setUsers] = useState<User[]>([
-        {
-            id: '1',
-            name: 'João Dias (Você)',
-            email: 'joao@contaju.com',
-            role: 'admin',
-            permissions: getRolePermissions('admin'),
-            createdAt: '2024-01-15',
-            lastLogin: '2024-12-08',
-            active: true,
-        },
-        {
-            id: '2',
-            name: 'Maria Silva',
-            email: 'maria@contaju.com',
-            role: 'manager',
-            permissions: getRolePermissions('manager'),
-            createdAt: '2024-02-20',
-            lastLogin: '2024-12-07',
-            active: true,
-        },
-    ]);
+    const [users, setUsers] = useState<User[]>([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -280,8 +259,8 @@ export const UserManagement: React.FC = () => {
                                             key={role}
                                             onClick={() => handleRoleChange(role)}
                                             className={`p-3 rounded-lg border-2 transition-all ${formData.role === role
-                                                    ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
-                                                    : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
+                                                ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
+                                                : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
                                                 }`}
                                         >
                                             {getRoleBadge(role)}
