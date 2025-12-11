@@ -355,7 +355,7 @@ export const OfficialDashboard: React.FC<{
                                 { label: 'Ritmo Ideal', value: performance.revenue.idealPace, isCurrency: true, suffix: '/dia' },
                                 {
                                     label: 'Ritmo Atual', value: performance.revenue.currentPace, isCurrency: true, suffix: '/dia',
-                                    highlight: performance.revenue.status === 'success' ? 'text-emerald-600' : 'text-rose-600'
+                                    highlight: performance.revenue.status === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                                 }
                             ],
                             status: performance.revenue.status
@@ -392,7 +392,7 @@ export const OfficialDashboard: React.FC<{
                                 { label: 'Falta p/ Meta', value: performance.profit.shortfall, isCurrency: true },
                                 {
                                     label: 'Projeção', value: performance.profit.projected, isCurrency: true,
-                                    highlight: performance.profit.status === 'success' ? 'text-emerald-600' : 'text-rose-600'
+                                    highlight: performance.profit.status === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                                 }
                             ],
                             status: performance.profit.status

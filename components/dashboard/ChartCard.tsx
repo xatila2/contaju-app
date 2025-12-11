@@ -604,8 +604,8 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
                     <div className="grid grid-cols-2 gap-y-2 gap-x-4 pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-800">
                         {data.details.map((item: any, idx: number) => (
                             <div key={idx} className="flex flex-col">
-                                <span className="text-[10px] uppercase font-bold text-zinc-400">{item.label}</span>
-                                <span className={`text-sm font-semibold truncate ${item.highlight || txtSecondary}`}>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500">{item.label}</span>
+                                <span className={`text-sm font-semibold truncate ${item.highlight || 'text-zinc-700 dark:text-zinc-300'}`}>
                                     {item.isCurrency ? formatMoney(item.value) : item.isPercent ? `${Math.round(item.value)}%` : item.value}
                                     {item.suffix && <span className="text-[10px] ml-0.5 opacity-70">{item.suffix}</span>}
                                 </span>
@@ -646,14 +646,14 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
         return (
             <div className={`h-full w-full p-4 rounded-xl flex flex-col justify-between shadow-md ${gradientClass}`}>
                 <div className="flex justify-between items-start">
-                    <span className="text-white/80 text-sm font-medium">{title}</span>
+                    <span className="text-white text-sm font-medium">{title}</span>
                     <div className="p-1 bg-white/20 rounded">
                         {data?.trend === 'down' ? <ArrowDownRight size={16} className="text-white" /> : <TrendingUp size={16} className="text-white" />}
                     </div>
                 </div>
 
                 <div>
-                    <div className="text-xs text-white/70 uppercase tracking-wider font-bold mb-1">Realizado</div>
+                    <div className="text-xs text-white/90 uppercase tracking-wider font-bold mb-1">Realizado</div>
                     <div className="text-2xl lg:text-3xl font-bold text-white mb-3 truncate" title={formatMoney(val)}>{formatMoney(val)}</div>
 
                     <div className="flex items-center gap-2 mb-2">
@@ -664,12 +664,12 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
 
                     <div className="flex justify-between items-end border-t border-white/10 pt-2">
                         <div className="flex flex-col">
-                            <span className="text-[10px] text-white/60 uppercase">Previsto</span>
-                            <span className="font-mono text-sm font-semibold">{formatMoney(predicted)}</span>
+                            <span className="text-[10px] text-white/80 uppercase">Previsto</span>
+                            <span className="font-mono text-sm font-semibold text-white">{formatMoney(predicted)}</span>
                         </div>
                         <div className="flex flex-col items-end">
-                            <span className="text-[10px] text-white/60 uppercase">Diferença</span>
-                            <span className="font-mono text-sm font-semibold">{formatMoney(diff)}</span>
+                            <span className="text-[10px] text-white/80 uppercase">Diferença</span>
+                            <span className="font-mono text-sm font-semibold text-white">{formatMoney(diff)}</span>
                         </div>
                     </div>
                 </div>
