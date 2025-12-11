@@ -16,12 +16,33 @@ export const Login: React.FC = () => {
         setError(null);
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            // 1. Authenticate
+            const { data, error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
 
-            if (error) throw error;
+            if (authError) throw authError;
+
+            if (data.user) {
+                // 2. Check Approval Status
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('is_approved')
+                    .eq('id', data.user.id)
+                    .single();
+
+                // If profile exists and is NOT approved
+                if (profile && !profile.is_approved) {
+                    await supabase.auth.signOut(); // Force signout
+                    throw new Error('Sua conta aguarda aprovação do administrador.');
+                }
+
+                // Note: If profile doesn't exist (legacy users), we might want to allow access or create one.
+                // For strict security, we assume profile must exist or defaults to 'false' if we treat null as false.
+                // But typically handle_new_user takes care of new ones. Legacy ones might fail here if not migrated.
+            }
+
             navigate('/');
         } catch (err: any) {
             setError(err.message === 'Invalid login credentials'

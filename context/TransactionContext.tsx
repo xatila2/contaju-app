@@ -133,6 +133,30 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         return newCompany.id;
     };
 
+    const seedDefaultCategories = async (cid: string) => {
+        // Map of legacy/static ID to new UUID
+        const idMap = new Map<string, string>();
+
+        // 1. Generate UUIDs for all default categories
+        DEFAULT_CATEGORIES.forEach(c => {
+            idMap.set(c.id, crypto.randomUUID());
+        });
+
+        // 2. Prepare payload
+        const categoriesToInsert = DEFAULT_CATEGORIES.map(c => ({
+            id: idMap.get(c.id),
+            company_id: cid,
+            name: c.name,
+            type: c.type,
+            code: c.code,
+            parent_id: c.parentId ? idMap.get(c.parentId) : null,
+            is_system_default: true
+        }));
+
+        const { error } = await supabase.from('categories').insert(categoriesToInsert);
+        if (error) console.error("Error seeding categories:", error);
+    };
+
     const loadData = async () => {
         setIsLoading(true);
         try {
@@ -175,8 +199,17 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 }
             }
 
-            if (cats) {
-                setCategories(cats.map((c: any) => ({
+
+            // Check if categories are empty and seed if necessary
+            let finalCategories = cats;
+            if (cats && cats.length === 0) {
+                await seedDefaultCategories(cid);
+                const { data: newCats } = await supabase.from('categories').select('*').eq('company_id', cid);
+                if (newCats) finalCategories = newCats;
+            }
+
+            if (finalCategories) {
+                setCategories(finalCategories.map((c: any) => ({
                     id: c.id,
                     name: c.name,
                     type: c.type as any,

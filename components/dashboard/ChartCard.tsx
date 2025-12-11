@@ -233,7 +233,7 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
                     {bank.predictedBalance !== undefined && false && ( // Hidden in favor of Reconciliation status as per request
                         <div className="mt-2 pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-800">
                             <div className="flex justify-between items-center text-xs">
-                                <span className="text-zinc-500">Previsto:</span>
+                                <span className="text-zinc-500 dark:text-zinc-400">Previsto:</span>
                                 <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">{formatMoney(bank.predictedBalance)}</span>
                             </div>
                         </div>
@@ -365,7 +365,7 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
                     <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `85%` }}></div>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                    <span className="text-zinc-500 text-xs">Última sinc: Hoje</span>
+                    <span className="text-zinc-500 dark:text-zinc-400 text-xs">Última sinc: Hoje</span>
                     <button className="text-yellow-600 dark:text-yellow-500 font-bold hover:underline text-xs flex items-center">
                         Conciliar <ChevronRight size={12} />
                     </button>
@@ -774,7 +774,7 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
             ref={ref}
             style={combinedStyle}
             // If custom bank list, remove background/border so the inner cards look separate?
-            className={`h-full flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${isEditMode ? 'ring-2 ring-indigo-500/20 hover:ring-indigo-500 cursor-move' : ''} ${className || ''}`}
+            className={`h-full flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${isEditMode ? 'ring-2 ring-indigo-500/20 hover:ring-indigo-500 cursor-move' : ''} ${className || ''}`}
             onMouseDown={onMouseDown}
             onMouseUp={onMouseUp}
             onTouchEnd={onTouchEnd}
