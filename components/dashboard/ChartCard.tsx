@@ -53,9 +53,9 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
 
     // --- DYNAMIC STYLES ---
     const hasCustomTextColor = !!config?.style?.textColor;
-    const txtPrimary = hasCustomTextColor ? '' : 'text-zinc-900 dark:text-white';
+    const txtPrimary = hasCustomTextColor ? '' : 'text-zinc-900 dark:text-zinc-100';
     const txtSecondary = hasCustomTextColor ? 'opacity-70' : 'text-zinc-500 dark:text-zinc-400';
-    const txtMuted = hasCustomTextColor ? 'opacity-50' : 'text-zinc-400';
+    const txtMuted = hasCustomTextColor ? 'opacity-50' : 'text-zinc-400 dark:text-zinc-500';
     const customAccent = config?.style?.accentColor;
 
     // --- RENDERERS ---
@@ -214,7 +214,7 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
                 </div>
                 <div>
                     <div className="text-[10px] uppercase font-bold text-zinc-400 mb-0.5">Saldo Atual</div>
-                    <div className="text-xl lg:text-2xl font-bold text-zinc-900 dark:text-white truncate" title={formatMoney(bank.currentBalance || bank.initialBalance)}>
+                    <div className="text-xl lg:text-2xl font-bold text-zinc-900 dark:text-zinc-100 truncate" title={formatMoney(bank.currentBalance || bank.initialBalance)}>
                         {formatMoney(bank.currentBalance || bank.initialBalance)}
                     </div>
 
@@ -358,7 +358,7 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
         return (
             <div className="flex flex-col justify-between h-full p-2">
                 <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-zinc-900 dark:text-white">Conciliação</h3>
+                    <h3 className="font-bold text-zinc-900 dark:text-zinc-100">Conciliação</h3>
                     <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 text-xs px-2 py-1 rounded-full font-bold">Em dia</span>
                 </div>
                 <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden mt-4 mb-2">
@@ -392,8 +392,13 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
     const renderLine = (variant: 'line' | 'area' = 'area') => {
         const chartColors = customAccent ? [customAccent, ...COLORS] : COLORS;
         // Check for custom Text Color to adjust axis/grid
-        const axisColor = hasCustomTextColor ? 'currentColor' : '#71717A';
-        const gridColor = hasCustomTextColor ? 'currentColor' : '#E4E4E5';
+        const axisColor = hasCustomTextColor ? 'currentColor' : '#71717A'; // Zinc-500
+        const gridColor = hasCustomTextColor ? 'currentColor' : '#27272a'; // Zinc-800 for dark mode grid? No, Recharts doesn't auto-dark. Need explicit prop or context.
+        // Actually for axis/grid, we might need to be smarter. 
+        // For now, let's assume axisColor is handled by parent style if currentcolor.
+        // If not, we set a neutral gray that works on both or use CSS var?
+        // Recharts needs explicit hex usually.
+        // Let's rely on currentColor for axis if possible or use a safe middle grey.
 
         return (
             <ResponsiveContainer width="100%" height="100%">

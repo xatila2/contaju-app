@@ -113,17 +113,25 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     // --- SUPABASE DATA LOADING ---
     const ensureCompany = async () => {
-        // Try to find existing company or create default
-        const { data: companies, error } = await supabase.from('companies').select('id').limit(1);
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+
+        // Try to find existing company OWNED BY USER
+        const { data: companies, error } = await supabase.from('companies')
+            .select('id')
+            .eq('owner_id', user.id)
+            .limit(1);
 
         if (companies && companies.length > 0) {
             return companies[0].id;
         }
 
-        // Create default
+        // Create default for THIS user
         const { data: newCompany, error: createError } = await supabase.from('companies').insert({
             name: 'Minha Empresa',
-            document: '00.000.000/0001-91'
+            document: '',
+            owner_id: user.id
         }).select().single();
 
         if (createError) {
