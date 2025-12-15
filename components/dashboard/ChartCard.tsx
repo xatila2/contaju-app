@@ -399,9 +399,9 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
     };
 
     const NoDataState = () => (
-        <div className="flex flex-col items-center justify-center h-full w-full opacity-40">
-            <BarChart2 size={32} className="mb-2 text-zinc-400" />
-            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Sem dados para o período</span>
+        <div className="flex flex-col items-center justify-center h-full w-full opacity-100 py-8 bg-zinc-50/50 dark:bg-zinc-800/10 rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-700/50">
+            <BarChart2 size={32} className="mb-2 text-zinc-300 dark:text-zinc-600" />
+            <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">Sem dados para exibir</span>
         </div>
     );
 

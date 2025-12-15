@@ -453,7 +453,7 @@ export const OfficialDashboard: React.FC<{
                 <div className="grid grid-cols-1 gap-6">
                     <ChartCard
                         cardId="fcl_card"
-                        config={{ customTitle: "Fluxo de Caixa Livre (FCL)" }}
+                        config={{ customTitle: "Fluxo de Caixa Livre (FCL)", type: 'kpi_gradient' }}
                         data={{
                             value: financials.fclRealized,
                             projectedValue: financials.fclProjected,

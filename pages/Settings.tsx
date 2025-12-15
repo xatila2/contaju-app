@@ -153,7 +153,8 @@ export const Settings: React.FC<SettingsProps> = () => {
         addCategory, updateCategory, deleteCategory,
         addBankAccount, updateBankAccount, deleteBankAccount,
         addCostCenter, updateCostCenter, deleteCostCenter,
-        updateNotificationSettings, updateCompanySettings
+        updateNotificationSettings, updateCompanySettings,
+        restoreDefaultCategories
     } = useTransactions();
 
     const location = useLocation();
