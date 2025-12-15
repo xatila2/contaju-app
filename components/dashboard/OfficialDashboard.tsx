@@ -8,7 +8,7 @@ export const OfficialDashboard: React.FC<{
     onViewBankTransactions?: (bankId: string) => void;
 }> = ({ dateRange, onViewBankTransactions }) => {
 
-    const { transactions, bankAccounts, planningData, categories, companyId, bankStatementLines } = useTransactions();
+    const { transactions, bankAccounts, planningData, categories, companyId, bankStatementLines, companySettings } = useTransactions();
     const navigate = useNavigate();
 
     if (!dateRange || !dateRange.end) return null;
