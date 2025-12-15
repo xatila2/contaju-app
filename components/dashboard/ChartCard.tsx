@@ -99,9 +99,11 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
                     </div>
                 </div>
 
+
+
                 {/* Block 2: Gauge */}
-                <div className="relative flex-1 min-h-[120px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                <div className="relative flex-1 min-h-[120px] min-w-0">
+                    <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                         <RePieChart>
                             <defs>
                                 <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
@@ -158,7 +160,7 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
                         </div>
                     )}
                 </div>
-            </div>
+            </div >
         );
     };
 
@@ -395,13 +397,14 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
         const axisColor = hasCustomTextColor ? 'currentColor' : '#71717A'; // Zinc-500
         const gridColor = hasCustomTextColor ? 'currentColor' : '#27272a'; // Zinc-800 for dark mode grid? No, Recharts doesn't auto-dark. Need explicit prop or context.
         // Actually for axis/grid, we might need to be smarter. 
+        // Actually for axis/grid, we might need to be smarter.
         // For now, let's assume axisColor is handled by parent style if currentcolor.
         // If not, we set a neutral gray that works on both or use CSS var?
         // Recharts needs explicit hex usually.
         // Let's rely on currentColor for axis if possible or use a safe middle grey.
 
         return (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                 {variant === 'area' ? (
                     <AreaChart data={Array.isArray(data) ? data : []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>
@@ -490,7 +493,7 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
         const gridColor = hasCustomTextColor ? 'currentColor' : '#E4E4E5';
 
         return (
-            <ResponsiveContainer width="99%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                 <BarChart data={Array.isArray(data) ? data : []} layout={layout === 'horizontal' ? 'vertical' : 'horizontal'} margin={layout === 'horizontal' ? { top: 0, right: 20, left: 20, bottom: 0 } : { top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.5} vertical={layout === 'vertical' ? false : true} horizontal={layout === 'horizontal' ? false : true} />
                     {layout === 'horizontal' ? (
@@ -565,10 +568,10 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
         ];
 
         return (
-            <div className="relative flex flex-col h-full w-full">
+            <div className="relative flex flex-col h-full w-full min-w-0">
                 {/* Top: Gauge */}
-                <div className="relative flex-1 min-h-[140px] -mt-4">
-                    <ResponsiveContainer width="100%" height="100%">
+                <div className="relative flex-1 min-h-[140px] -mt-4 min-w-0">
+                    <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                         <RePieChart>
                             <defs>
                                 <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
@@ -682,7 +685,7 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
         const isDonut = type?.includes('donut');
 
         return (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <RePieChart>
                     <Pie
                         data={Array.isArray(data) ? data : []}
@@ -824,8 +827,10 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
 
 
             {/* Content */}
-            <div className={`flex-1 min-w-0 ${isSmallCard ? 'p-2' : 'p-4'}`} style={{ minHeight: 0 }}>
-                {renderContent()}
+            <div className="flex-1 min-w-0 relative" style={{ minHeight: 0 }}>
+                <div className={`absolute inset-0 ${isSmallCard ? 'p-2' : 'p-4'}`} style={{ width: '100%', height: '100%' }}>
+                    {renderContent()}
+                </div>
             </div>
 
             {/* Edit Mode Overlay */}

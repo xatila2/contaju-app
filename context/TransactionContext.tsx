@@ -9,6 +9,8 @@ import {
     DEFAULT_CATEGORIES, INITIAL_TRANSACTIONS, MOCK_BANKS, DEFAULT_COST_CENTERS
 } from '../constants';
 
+import { useAuth } from './AuthContext';
+
 interface TransactionContextType {
     transactions: Transaction[];
     categories: Category[];
@@ -25,6 +27,7 @@ interface TransactionContextType {
     categoryGroupItems: CategoryGroupItem[];
     categoryGroupGoals: CategoryGroupGoal[];
     companySettings: CompanySettings;
+    companyId: string | null;
     setCompanySettings: React.Dispatch<React.SetStateAction<CompanySettings>>;
 
     // Setters
@@ -85,6 +88,8 @@ interface TransactionContextType {
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
 
 export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { user } = useAuth(); // Use Auth Context
+
     // --- STATE INITIALIZATION (SUPABASE) ---
     const [companyId, setCompanyId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -114,15 +119,13 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     const [companyName, setCompanyName] = useState<string>('');
 
     // --- SUPABASE DATA LOADING ---
-    const ensureCompany = async () => {
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return null;
+    const ensureCompany = async (currentUser: any) => {
+        if (!currentUser) return null;
 
         // Try to find existing company OWNED BY USER
         const { data: companies, error } = await supabase.from('companies')
             .select('id')
-            .eq('owner_id', user.id)
+            .eq('owner_id', currentUser.id)
             .limit(1);
 
         if (companies && companies.length > 0) {
@@ -133,7 +136,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         const { data: newCompany, error: createError } = await supabase.from('companies').insert({
             name: 'Minha Empresa',
             document: '',
-            owner_id: user.id
+            owner_id: currentUser.id
         }).select().single();
 
         if (createError) {
@@ -168,18 +171,38 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
 
     const loadData = async () => {
+        if (!user) {
+            // Reset state if no user
+            setCompanyId(null);
+            setTransactions([]);
+            setCategories([]);
+            setBankAccounts([]);
+            setCostCenters([]);
+            setCreditCards([]);
+            // ... reset others if needed
+            setIsLoading(false);
+            return;
+        }
+
         setIsLoading(true);
         try {
-            const cid = await ensureCompany();
-            if (!cid) throw new Error("Could not ensure company.");
+            const cid = await ensureCompany(user);
+            console.log("🔍 [Debug] Ensure Company Returned:", cid);
+
+            if (!cid) {
+                console.error("❌ [Debug] Could not ensure company. CID is missing.");
+                throw new Error("Could not ensure company.");
+            }
             setCompanyId(cid);
+
+            console.log("🚀 [Debug] Starting Data Fetch for CID:", cid);
 
             // Fetch in parallel
             const [
-                { data: cats },
-                { data: banks },
+                { data: cats, error: errCats },
+                { data: banks, error: errBanks },
                 { data: ccs },
-                { data: txs },
+                { data: txs, error: errTxs },
                 { data: cards },
                 { data: ccTxs }, // Credit Card Transactions
                 { data: budgets },
@@ -196,6 +219,22 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 supabase.from('purchases').select('*').eq('company_id', cid),
                 supabase.from('companies').select('name, settings, capital_giro_necessario, notification_settings').eq('id', cid).single()
             ]);
+
+            console.log("📊 [Debug] Fetch Results:", {
+                categories: cats?.length,
+                errCats,
+                banks: banks?.length,
+                errBanks,
+                transactions: txs?.length,
+                errTxs,
+                cid
+            });
+
+            if (txs && txs.length === 0) {
+                console.warn("⚠️ [Debug] Zero transactions found for this company!");
+            } else {
+                console.log("✅ [Debug] Found transactions:", txs?.length);
+            }
 
             // Set Settings
             const companyData = settingsResult?.data as any;
@@ -344,7 +383,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [user]);
 
     // --- ACTIONS ---
     const handleSaveTransaction = async (tx: Transaction) => {
@@ -433,10 +472,10 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                         payment_date: item.paymentDate || null,
                         competence_month: item.dueDate ? item.dueDate.substring(0, 7) : null,
                         status: item.status,
-                        category_id: item.categoryId,
-                        bank_account_id: item.bankAccountId,
-                        cost_center_id: item.costCenterId,
-                        destination_bank_account_id: item.destinationBankAccountId,
+                        category_id: item.categoryId || null, // Convert "" to null
+                        bank_account_id: item.bankAccountId || null, // Convert "" to null
+                        cost_center_id: item.costCenterId || null, // Convert "" to null
+                        destination_bank_account_id: item.destinationBankAccountId || null, // Convert "" to null
                         is_reconciled: item.isReconciled,
                         notes: item.notes,
                         client: item.client
@@ -445,8 +484,16 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
             }
 
             if (transactionsToInsert.length > 0) {
-                const { error } = await supabase.from('transactions').insert(transactionsToInsert);
-                if (error) console.error("Insert Error", error);
+                const { data: insertedData, error } = await supabase.from('transactions')
+                    .insert(transactionsToInsert)
+                    .select();
+
+                if (error) {
+                    console.error("Insert Error details:", error);
+                    alert(`Erro ao salvar transação: ${error.message}`);
+                } else {
+                    console.log("Transactions inserted successfully:", insertedData);
+                }
             }
         }
         await loadData(); // Refresh state
@@ -794,7 +841,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         addCategory, updateCategory, deleteCategory,
         addBankAccount, updateBankAccount, deleteBankAccount,
         addCostCenter, updateCostCenter, deleteCostCenter,
-        updateNotificationSettings, updateCompanySettings
+        updateNotificationSettings, updateCompanySettings,
+        companyId // <--- Added missing companyId
     };
 
     return (

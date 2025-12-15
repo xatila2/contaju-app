@@ -8,12 +8,13 @@ export const OfficialDashboard: React.FC<{
     onViewBankTransactions?: (bankId: string) => void;
 }> = ({ dateRange, onViewBankTransactions }) => {
 
-    const { transactions, bankAccounts, planningData, categories, companySettings, bankStatementLines } = useTransactions();
+    const { transactions, bankAccounts, planningData, categories, companyId, bankStatementLines } = useTransactions();
     const navigate = useNavigate();
 
     if (!dateRange || !dateRange.end) return null;
 
     const currentMonthKey = dateRange.end.slice(0, 7); // YYYY-MM
+
 
     // Calculate Previous Month Key
     const previousMonthKey = useMemo(() => {
@@ -233,6 +234,22 @@ export const OfficialDashboard: React.FC<{
                     Visão Geral
                 </h1>
                 <p className="text-zinc-500 dark:text-zinc-400">Acompanhe os indicadores financeiros da sua empresa.</p>
+            </div>
+
+            {/* DEBUG BANNER - TEMPORARY */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg flex flex-wrap gap-4 text-xs font-mono">
+                <div>
+                    <span className="font-bold text-blue-700 dark:text-blue-300">EMPRESA (ID):</span> {companyId || 'Carregando...'}
+                </div>
+                <div>
+                    <span className="font-bold text-blue-700 dark:text-blue-300">TOTAL TRANSAÇÕES (BD):</span> {transactions.length}
+                </div>
+                <div>
+                    <span className="font-bold text-blue-700 dark:text-blue-300">CONTAS BANCÁRIAS:</span> {bankAccounts.length}
+                </div>
+                <div>
+                    <span className="font-bold text-blue-700 dark:text-blue-300">META RECEITA:</span> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(goals.revenue)}
+                </div>
             </div>
 
             {/* ================================================================================= */}
