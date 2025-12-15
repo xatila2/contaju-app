@@ -391,29 +391,42 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
         );
     };
 
+    // Helper for Axis formatting
+    const axisFormatter = (val: number) => {
+        if (Math.abs(val) >= 1000000) return `R$${(val / 1000000).toFixed(1)}M`;
+        if (Math.abs(val) >= 1000) return `R$${(val / 1000).toFixed(0)}k`;
+        return `R$${val}`;
+    };
+
+    const NoDataState = () => (
+        <div className="flex flex-col items-center justify-center h-full w-full opacity-40">
+            <BarChart2 size={32} className="mb-2 text-zinc-400" />
+            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Sem dados para o período</span>
+        </div>
+    );
+
     const renderLine = (variant: 'line' | 'area' = 'area') => {
         const chartColors = customAccent ? [customAccent, ...COLORS] : COLORS;
-        // Check for custom Text Color to adjust axis/grid
-        const axisColor = hasCustomTextColor ? 'currentColor' : '#71717A'; // Zinc-500
-        const gridColor = hasCustomTextColor ? 'currentColor' : '#27272a'; // Zinc-800 for dark mode grid? No, Recharts doesn't auto-dark. Need explicit prop or context.
-        // Actually for axis/grid, we might need to be smarter. 
-        // Actually for axis/grid, we might need to be smarter.
-        // For now, let's assume axisColor is handled by parent style if currentcolor.
-        // If not, we set a neutral gray that works on both or use CSS var?
-        // Recharts needs explicit hex usually.
-        // Let's rely on currentColor for axis if possible or use a safe middle grey.
+        const axisColor = hasCustomTextColor ? 'currentColor' : '#71717A';
+        const gridColor = hasCustomTextColor ? 'currentColor' : '#27272a';
+
+        // Empty State Check
+        const chartData = Array.isArray(data) ? data : [];
+        if (chartData.length === 0 || chartData.every((d: any) => d.value === 0)) {
+            return <NoDataState />;
+        }
 
         return (
             <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                 {variant === 'area' ? (
-                    <AreaChart data={Array.isArray(data) ? data : []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>
                             <linearGradient id={`color-${cardId}`} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor={chartColors[0]} stopOpacity={0.3} />
                                 <stop offset="95%" stopColor={chartColors[0]} stopOpacity={0} />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} opacity={0.5} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} opacity={0.1} />
                         <XAxis
                             dataKey="name"
                             axisLine={false}
@@ -426,7 +439,8 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
                             axisLine={false}
                             tickLine={false}
                             tick={{ fill: axisColor, fontSize: 10 }}
-                            tickFormatter={(val) => `${val / 1000}k`}
+                            tickFormatter={axisFormatter}
+                            width={60}
                             hide={isSmallCard}
                         />
                         <Tooltip
@@ -445,13 +459,13 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
                             activeDot={{ r: 6, strokeWidth: 0, fill: chartColors[0] }}
                         />
                         {/* Support for second value line if needed */}
-                        {Array.isArray(data) && data.length > 0 && data[0].value2 !== undefined &&
+                        {chartData.length > 0 && chartData[0].value2 !== undefined &&
                             <Area type="monotone" dataKey="value2" stroke="#82ca9d" fillOpacity={0} />
                         }
                     </AreaChart>
                 ) : (
-                    <LineChart data={Array.isArray(data) ? data : []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} opacity={0.5} />
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} opacity={0.1} />
                         <XAxis
                             dataKey="name"
                             axisLine={false}
@@ -464,6 +478,8 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
                             axisLine={false}
                             tickLine={false}
                             tick={{ fill: axisColor, fontSize: 10 }}
+                            tickFormatter={axisFormatter}
+                            width={60}
                             hide={isSmallCard}
                         />
                         <Tooltip
@@ -492,19 +508,25 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>((props
         const axisColor = hasCustomTextColor ? 'currentColor' : '#71717A';
         const gridColor = hasCustomTextColor ? 'currentColor' : '#E4E4E5';
 
+        // Empty State Check
+        const chartData = Array.isArray(data) ? data : [];
+        if (chartData.length === 0 || chartData.every((d: any) => d.value === 0)) {
+            return <NoDataState />;
+        }
+
         return (
             <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
-                <BarChart data={Array.isArray(data) ? data : []} layout={layout === 'horizontal' ? 'vertical' : 'horizontal'} margin={layout === 'horizontal' ? { top: 0, right: 20, left: 20, bottom: 0 } : { top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.5} vertical={layout === 'vertical' ? false : true} horizontal={layout === 'horizontal' ? false : true} />
+                <BarChart data={chartData} layout={layout === 'horizontal' ? 'vertical' : 'horizontal'} margin={layout === 'horizontal' ? { top: 0, right: 20, left: 20, bottom: 0 } : { top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} vertical={layout === 'vertical' ? false : true} horizontal={layout === 'horizontal' ? false : true} />
                     {layout === 'horizontal' ? (
                         <>
                             <XAxis type="number" hide />
-                            <YAxis type="category" dataKey="name" width={80} tick={{ fill: axisColor, fontSize: 10 }} interval={0} />
+                            <YAxis type="category" dataKey="name" width={100} tick={{ fill: axisColor, fontSize: 11, fontWeight: 500 }} interval={0} />
                         </>
                     ) : (
                         <>
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: axisColor, fontSize: 10 }} dy={10} hide={isSmallCard} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fill: axisColor, fontSize: 10 }} tickFormatter={(val) => `${val / 1000}k`} hide={isSmallCard} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: axisColor, fontSize: 10 }} tickFormatter={axisFormatter} width={60} hide={isSmallCard} />
                         </>
                     )}
                     <Tooltip

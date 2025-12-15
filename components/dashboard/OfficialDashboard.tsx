@@ -149,10 +149,11 @@ export const OfficialDashboard: React.FC<{
     // Goals from Planning
     const goals = useMemo(() => {
         const plan = planningData.find(p => p.month === currentMonthKey);
+        // If no plan, return 0 to indicate not set. The UI handles 0 specially.
         return {
-            revenue: plan?.revenueGoal || 1, // Avoid div/0
-            expense: plan?.expenseGoal || 1,
-            profit: plan?.profitGoal || ((plan?.revenueGoal || 0) - (plan?.expenseGoal || 0)) || 1
+            revenue: plan?.revenueGoal || 0,
+            expense: plan?.expenseGoal || 0,
+            profit: plan?.profitGoal || ((plan?.revenueGoal || 0) - (plan?.expenseGoal || 0)) || 0
         };
     }, [planningData, currentMonthKey]);
 
@@ -192,31 +193,51 @@ export const OfficialDashboard: React.FC<{
     const performance = useMemo(() => {
         // 1. REVENUE PACE
         const revenueGoal = goals.revenue;
-        const revenueIdealPace = businessDays.total > 0 ? revenueGoal / businessDays.total : 0;
+        // Avoid division by zero if revenueGoal is 0
+        const revenueIdealPace = (businessDays.total > 0 && revenueGoal > 0) ? revenueGoal / businessDays.total : 0;
         const revenueCurrentPace = businessDays.passed > 0 ? financials.revenueRealized / businessDays.passed : 0;
-        const revenuePaceDiff = revenueCurrentPace - revenueIdealPace;
-        // Status: Green (>= ideal), Yellow (> 80% ideal), Red (< 80%)
-        const revenueStatus = revenueCurrentPace >= revenueIdealPace ? 'success'
-            : revenueCurrentPace >= (revenueIdealPace * 0.8) ? 'warning'
-                : 'danger';
+
+        // Status: 
+        // If Goal is 0, we can't really judge 'success', maybe 'neutral'? Or just 'danger' if we have 0 revenue?
+        // Let's assume if Goal 0, and Revenue > 0, it's success.
+        let revenueStatus: 'success' | 'warning' | 'danger' = 'danger';
+        if (revenueGoal === 0) {
+            revenueStatus = financials.revenueRealized > 0 ? 'success' : 'warning';
+        } else {
+            const paceDiff = revenueCurrentPace - revenueIdealPace;
+            revenueStatus = revenueCurrentPace >= revenueIdealPace ? 'success'
+                : revenueCurrentPace >= (revenueIdealPace * 0.8) ? 'warning'
+                    : 'danger';
+        }
 
         // 2. EXPENSE BUDGET
         const expenseGoal = goals.expense; // Budget
         const expenseRemaining = Math.max(0, expenseGoal - financials.expenseRealized);
         const expensePercent = expenseGoal > 0 ? (financials.expenseRealized / expenseGoal) * 100 : 0;
-        // Status: Green (< 60%), Yellow (60-80%), Red (> 80%)
-        const expenseStatus = expensePercent <= 60 ? 'success'
-            : expensePercent <= 80 ? 'warning'
-                : 'danger';
+
+        let expenseStatus: 'success' | 'warning' | 'danger' = 'success';
+        if (expenseGoal > 0) {
+            expenseStatus = expensePercent <= 60 ? 'success'
+                : expensePercent <= 80 ? 'warning'
+                    : 'danger';
+        } else {
+            // No budget set. If expenses > 0, maybe warning?
+            expenseStatus = financials.expenseRealized > 0 ? 'warning' : 'success';
+        }
 
         // 3. PROFIT DISTANCE
         const profitGoal = goals.profit;
         const profitShortfall = Math.max(0, profitGoal - financials.profitRealized);
         const profitProjected = financials.profitProjected;
-        // Status: Green (Projected >= Goal), Yellow (Projected >= 90% Goal), Red (Projected < 90%)
-        const profitStatus = profitProjected >= profitGoal ? 'success'
-            : profitProjected >= (profitGoal * 0.9) ? 'warning'
-                : 'danger';
+
+        let profitStatus: 'success' | 'warning' | 'danger' = 'danger';
+        if (profitGoal === 0) {
+            profitStatus = profitProjected > 0 ? 'success' : 'warning';
+        } else {
+            profitStatus = profitProjected >= profitGoal ? 'success'
+                : profitProjected >= (profitGoal * 0.9) ? 'warning'
+                    : 'danger';
+        }
 
         return {
             revenue: { idealPace: revenueIdealPace, currentPace: revenueCurrentPace, status: revenueStatus },
