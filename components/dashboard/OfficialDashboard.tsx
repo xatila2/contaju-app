@@ -362,7 +362,7 @@ export const OfficialDashboard: React.FC<{
                                     statusColor, // For text
                                     unreconciledCount: pendingCount
                                 }}
-                                className="cursor-pointer hover:ring-2 hover:ring-indigo-500/50 transition-all bg-white dark:bg-zinc-900 shadow-sm"
+                                className="cursor-pointer hover:ring-2 hover:ring-indigo-500/50 transition-all bg-white dark:bg-zinc-900 shadow-sm min-h-[140px]"
                                 onClick={() => onViewBankTransactions?.(bank.id)}
                             />
                         );
@@ -461,7 +461,7 @@ export const OfficialDashboard: React.FC<{
                             trend: financials.fclRealized > 0 ? 'up' : 'down',
                             subtext: 'Indicador de liquidez operacional'
                         }}
-                        className="shadow-lg bg-white dark:bg-zinc-900"
+                        className="shadow-lg bg-white dark:bg-zinc-900 min-h-[200px]"
                     />
                 </div>
             </section>
