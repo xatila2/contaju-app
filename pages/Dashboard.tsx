@@ -9,7 +9,9 @@ import { Edit, Plus, Save, RotateCcw, Layout, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { CardConfigModal } from '../components/dashboard/CardConfigModal';
-import { OfficialDashboard } from '../components/dashboard/OfficialDashboard';
+import { PremiumDashboard } from '../components/dashboard/PremiumDashboard';
+import { CyberDashboard } from '../components/dashboard/CyberDashboard';
+import { GoldDashboard } from '../components/dashboard/GoldDashboard';
 
 // Wrapper component to provide context
 export const Dashboard: React.FC<{
@@ -36,9 +38,9 @@ const DashboardContent: React.FC<{
   // but for now we simply render the Official Dashboard.
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950/50 pb-20">
+    <div className="w-full">
       {/* Content Area - Always Official */}
-      <OfficialDashboard dateRange={dateRange} onViewBankTransactions={onViewBankTransactions} />
+      <GoldDashboard dateRange={dateRange} onViewBankTransactions={onViewBankTransactions} />
     </div>
   );
 };

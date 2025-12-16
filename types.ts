@@ -278,6 +278,22 @@ export interface CompanySettings {
   capitalGiroNecessario: number;
 }
 
+export interface CompanyData {
+  name: string;
+  document: string; // CNPJ/CPF
+  email?: string;
+  phone?: string;
+  address?: {
+    street: string;
+    number: string;
+    complement?: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+}
+
 export interface CardStyleConfig {
   backgroundColor?: string;
   textColor?: string;

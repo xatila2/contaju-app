@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import {
     Transaction, Category, BankAccount, CostCenter, Purchase, PlanningData,
     NotificationSettings, BankStatementLine, ReconciliationMatch, CategoryRule, CreditCard,
-    CategoryGroup, CategoryGroupItem, CategoryGroupGoal, CompanySettings
+    CategoryGroup, CategoryGroupItem, CategoryGroupGoal, CompanySettings, CompanyData
 } from '../types';
 import { supabase } from '../src/lib/supabase';
 import {
@@ -27,6 +27,7 @@ interface TransactionContextType {
     categoryGroupItems: CategoryGroupItem[];
     categoryGroupGoals: CategoryGroupGoal[];
     companySettings: CompanySettings;
+    companyData: CompanyData;
     companyId: string | null;
     setCompanySettings: React.Dispatch<React.SetStateAction<CompanySettings>>;
 
@@ -83,6 +84,7 @@ interface TransactionContextType {
     deleteCostCenter: (id: string) => Promise<void>;
     updateNotificationSettings: (settings: NotificationSettings) => Promise<void>;
     updateCompanySettings: (settings: CompanySettings) => Promise<void>;
+    updateCompanyData: (data: Partial<CompanyData>) => Promise<void>;
     restoreDefaultCategories: () => Promise<void>;
 }
 
@@ -116,6 +118,10 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     const [companySettings, setCompanySettings] = useState<CompanySettings>({
         capitalGiroNecessario: 0
+    });
+    const [companyData, setCompanyData] = useState<CompanyData>({
+        name: '',
+        document: ''
     });
     const [companyName, setCompanyName] = useState<string>('');
 
@@ -208,7 +214,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 { data: ccTxs }, // Credit Card Transactions
                 { data: budgets },
                 { data: purchasesData },
-                settingsResult
+                settingsResult,
+                { data: rulesData }
             ] = await Promise.all([
                 supabase.from('categories').select('*').eq('company_id', cid),
                 supabase.from('bank_accounts').select('*').eq('company_id', cid),
@@ -218,7 +225,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 supabase.from('credit_card_transactions').select('*').eq('company_id', cid),
                 supabase.from('budgets').select('*').eq('company_id', cid),
                 supabase.from('purchases').select('*').eq('company_id', cid),
-                supabase.from('companies').select('name, settings, capital_giro_necessario, notification_settings').eq('id', cid).single()
+                supabase.from('companies').select('name, document, settings, capital_giro_necessario, notification_settings').eq('id', cid).single(),
+                supabase.from('category_rules').select('*').eq('company_id', cid)
             ]);
 
             console.log("📊 [Debug] Fetch Results:", {
@@ -250,6 +258,16 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                     // Merge with defaults to ensure new fields exists
                     setNotificationSettings(prev => ({ ...prev, ...companyData.notification_settings }));
                 }
+
+                // Set Company Data
+                const settings = companyData.settings || {};
+                setCompanyData({
+                    name: companyData.name || '',
+                    document: companyData.document || '',
+                    email: settings.email || '',
+                    phone: settings.phone || '',
+                    address: settings.address || undefined
+                });
             }
 
 
@@ -373,7 +391,29 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
 
             setTransactions(loadedTransactions);
 
-            // TODO: Category Rules, Groups, Planning (Budgets)
+            // Mapping Budgets to PlanningData
+            if (budgets) {
+                setPlanningData(budgets.map((b: any) => ({
+                    month: b.month,
+                    revenueGoal: Number(b.revenue_goal),
+                    expenseGoal: Number(b.expense_goal),
+                    profitGoal: Number(b.profit_goal),
+                    profitSharingParams: b.profit_sharing_params || undefined
+                })));
+            }
+
+            // Set Category Rules
+            if (rulesData) {
+                setCategoryRules(rulesData.map((r: any) => ({
+                    id: r.id,
+                    type: r.type,
+                    keyword: r.keyword,
+                    categoryId: r.category_id,
+                    priority: r.priority,
+                    active: r.active
+                })));
+            }
+
 
         } catch (error) {
             console.error("Supabase Load Error:", error);
@@ -586,12 +626,22 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
 
     const handleAddCategoryRule = async (rule: Omit<CategoryRule, 'id'>) => {
-        // No table for rules yet? Schema didn't have `category_rules` table.
-        // Limitation. Local state for now? Or create table? 
-        // User executed MY schema. My schema did NOT have category_rules.
-        // I will use LocalStorage for this specific feature as fallback or fail silent.
-        // Fallback to local state + Warn.
-        setCategoryRules(prev => [...prev, { ...rule, id: Math.random().toString() }]);
+        if (!companyId) return;
+        const { error } = await supabase.from('category_rules').insert({
+            company_id: companyId,
+            type: rule.type,
+            keyword: rule.keyword,
+            category_id: rule.categoryId,
+            priority: rule.priority,
+            active: rule.active
+        });
+
+        if (error) {
+            console.error("Error adding category rule:", error);
+            alert("Erro ao criar regra de categoria.");
+        } else {
+            await loadData();
+        }
     };
 
     const handleAddCreditCard = async (card: Omit<CreditCard, 'id'>) => {
@@ -792,6 +842,41 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         if (!companyId) return;
         const { error } = await supabase.from('cost_centers').delete().eq('id', id);
         if (error) console.error("Delete CC Error", error);
+        else await loadData();
+    };
+
+    const updateCompanyData = async (data: Partial<CompanyData>) => {
+        if (!companyId) return;
+
+        // 1. Prepare Updates
+        const updates: any = {};
+        if (data.name !== undefined) updates.name = data.name;
+        if (data.document !== undefined) updates.document = data.document;
+
+        // 2. Prepare Settings Update (Merge)
+        // We need current settings first? We should fetch or rely on state?
+        // Relying on state (companyData) might be stale if we don't include previous 'settings' content 
+        // that isn't related to companyData (e.g. if we stored other things there).
+        // For now, assuming 'settings' only stores these extra fields.
+        // Better: Fetch current to be safe? Or just use what we have in memory + merge.
+
+        // Let's assume 'settings' column stores Email, Phone, Address
+        const newSettings = {
+            ...(companyData.email ? { email: companyData.email } : {}),
+            ...(companyData.phone ? { phone: companyData.phone } : {}),
+            ...(companyData.address ? { address: companyData.address } : {}),
+            // Merge new values
+            ...(data.email !== undefined ? { email: data.email } : {}),
+            ...(data.phone !== undefined ? { phone: data.phone } : {}),
+            ...(data.address !== undefined ? { address: data.address } : {})
+        };
+
+        if (Object.keys(newSettings).length > 0) {
+            updates.settings = newSettings;
+        }
+
+        const { error } = await supabase.from('companies').update(updates).eq('id', companyId);
+        if (error) console.error("Update Company Data Error", error);
         else await loadData();
     };
 

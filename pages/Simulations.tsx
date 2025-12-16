@@ -7,9 +7,11 @@ import { Transaction, Category } from '../types';
 
 import { useTransactions } from '../context/TransactionContext';
 
-interface SimulationsProps { }
+interface SimulationsProps {
+    dateRange?: { start: string, end: string };
+}
 
-export const Simulations: React.FC<SimulationsProps> = () => {
+export const Simulations: React.FC<SimulationsProps> = ({ dateRange }) => {
     const { transactions, categories } = useTransactions();
 
     const [selectedScenarioId, setSelectedScenarioId] = useState<string>('base');
@@ -21,14 +23,27 @@ export const Simulations: React.FC<SimulationsProps> = () => {
 
     // --- 1. Calculate Baseline P&L (DRE) from Transactions ---
     const baselineData = useMemo(() => {
-        // Determine month range or just sum up all loaded transactions for "Average Month" simulation
-        // For simplicity, we calculate totals and assume a monthly average context
+        // Filter by Date Range if provided
+        const filteredTransactions = transactions.filter(tx => {
+            // Include reconciled, pending, scheduled, and overdue
+            // Exclude cancelled/draft if any (not in current types, but good practice)
+            const validStatus = ['reconciled', 'pending', 'scheduled', 'overdue'].includes(tx.status);
+            if (!validStatus) return false;
+
+            // Date filtering
+            if (dateRange) {
+                // Use competence date (dueDate or date)
+                const txDate = tx.dueDate || tx.date;
+                return txDate >= dateRange.start && txDate <= dateRange.end;
+            }
+            return true;
+        });
+
         let totalRevenue = 0;
         let totalVariableCost = 0;
         let totalFixedCost = 0;
 
-        transactions.forEach(tx => {
-            if (tx.status !== 'reconciled' && tx.status !== 'pending') return; // Only real/pending
+        filteredTransactions.forEach(tx => {
             const amount = Math.abs(tx.amount);
 
             if (tx.type === 'income') {
@@ -48,7 +63,7 @@ export const Simulations: React.FC<SimulationsProps> = () => {
         const margin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
         return { totalRevenue, totalVariableCost, totalFixedCost, netProfit, margin };
-    }, [transactions, categories]);
+    }, [transactions, categories, dateRange]);
 
 
     // --- 2. Calculate Simulated P&L ---

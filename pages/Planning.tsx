@@ -62,19 +62,32 @@ const SummaryCard = ({ title, goal, actual, type, icon: Icon }: any) => {
 
 const CellInput = ({ value, onSave, color }: { value: number, onSave: (val: string) => void, color: string }) => {
     const [isFocused, setIsFocused] = useState(false);
-    const [localValue, setLocalValue] = useState(value?.toString() || '');
+    const [localValue, setLocalValue] = useState(value || 0);
+
+    const formatBRL = (val: number) => {
+        if (val === 0) return 'R$ 0,00';
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+    };
 
     useEffect(() => {
-        setLocalValue(value?.toString() || '');
+        setLocalValue(value || 0);
     }, [value]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const rawValue = e.target.value.replace(/\D/g, '');
+        const numberValue = rawValue ? parseInt(rawValue, 10) / 100 : 0;
+        setLocalValue(numberValue);
+    };
 
     const handleBlur = () => {
         setIsFocused(false);
-        onSave(localValue);
+        onSave(localValue.toFixed(2));
     };
 
-    const handleFocus = () => {
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
         setIsFocused(true);
+        // Optional: Select all on focus if desired
+        // e.target.select();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -90,23 +103,28 @@ const CellInput = ({ value, onSave, color }: { value: number, onSave: (val: stri
             </span>
             {isFocused ? (
                 <input
-                    type="number"
-                    value={localValue}
-                    onChange={(e) => setLocalValue(e.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    value={localValue === 0 ? '' : formatBRL(localValue)}
+                    onChange={handleChange}
                     onBlur={handleBlur}
+                    onFocus={handleFocus}
                     onKeyDown={handleKeyDown}
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    placeholder="R$ 0,00"
                     className={`w-full bg-white dark:bg-zinc-800 border-2 border-yellow-500 rounded px-2 pt-4 pb-1 text-right text-xs font-bold text-zinc-900 dark:text-white outline-none transition-all h-9 shadow-lg z-10`}
                     autoFocus
-                    placeholder="0.00"
-                    step="0.01"
                 />
             ) : (
                 <div
-                    onClick={handleFocus}
-                    className={`w-full bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 rounded px-2 pt-1 pb-1 text-right text-xs cursor-text transition-all h-8 flex items-center justify-end ${color}`}
+                    onClick={() => setIsFocused(true)}
+                    className={`w-full h-full min-h-[32px] flex items-center justify-end px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors ${color}`}
                 >
-                    {value ? formatMoney(value) : '-'}
+                    <span className="text-xs font-medium">
+                        {value === 0 ? '-' : formatBRL(value)}
+                    </span>
+                    <span className="opacity-0 group-hover:opacity-100 ml-1 text-zinc-400">
+                        {/* <Edit2 size={10} /> */}
+                    </span>
                 </div>
             )}
         </div>

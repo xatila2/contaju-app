@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Users, Plus, X, Edit2, Trash2, Shield, Mail, Calendar as CalendarIcon, CheckCircle2, XCircle } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 import { User, UserRole, Permission, PermissionModule } from '../types';
 
 const defaultPermissions: Permission[] = [
@@ -13,7 +14,7 @@ const defaultPermissions: Permission[] = [
     { module: 'simulations', canView: true, canCreate: false, canEdit: false, canDelete: false },
 ];
 
-const getRolePermissions = (role: UserRole): Permission[] => {
+const getRolePermissions = (role: UserRole): Permission[] => { // ... unchanged 
     switch (role) {
         case 'admin':
             return defaultPermissions.map(p => ({ ...p, canView: true, canCreate: true, canEdit: true, canDelete: true }));
@@ -50,6 +51,12 @@ export const UserManagement: React.FC = () => {
         role: 'user',
         permissions: getRolePermissions('user'),
         active: true,
+    });
+
+    const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; userId: string | null; userName: string }>({
+        isOpen: false,
+        userId: null,
+        userName: ''
     });
 
     const handleOpenAdd = () => {
@@ -93,9 +100,17 @@ export const UserManagement: React.FC = () => {
         setIsModalOpen(false);
     };
 
-    const handleDelete = (userId: string) => {
-        if (window.confirm('Tem certeza que deseja remover este usuário?')) {
-            setUsers(users.filter(u => u.id !== userId));
+    const handleDeleteCheck = (userId: string) => {
+        const user = users.find(u => u.id === userId);
+        if (user) {
+            setDeleteModal({ isOpen: true, userId, userName: user.name });
+        }
+    };
+
+    const handleConfirmDelete = () => {
+        if (deleteModal.userId) {
+            setUsers(users.filter(u => u.id !== deleteModal.userId));
+            setDeleteModal({ isOpen: false, userId: null, userName: '' });
         }
     };
 
@@ -199,7 +214,7 @@ export const UserManagement: React.FC = () => {
                                 </button>
                                 {user.id !== '1' && (
                                     <button
-                                        onClick={() => handleDelete(user.id)}
+                                        onClick={() => handleDeleteCheck(user.id)}
                                         className="flex-1 flex items-center justify-center gap-1 p-2 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded transition-colors text-sm"
                                     >
                                         <Trash2 size={14} />
@@ -211,6 +226,14 @@ export const UserManagement: React.FC = () => {
                     ))}
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })}
+                onConfirm={handleConfirmDelete}
+                title="Remover Usuário"
+                message={`Tem certeza que deseja remover o usuário "${deleteModal.userName}"? Esta ação não pode ser desfeita.`}
+            />
 
             {/* User Modal */}
             {isModalOpen && (

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Save, Plus, Trash2, Edit2, ChevronDown, ChevronRight, FileText, X, Building2, Search, Briefcase, Bell, Info, Calendar, CheckCircle2, AlertCircle, Users, GripVertical } from 'lucide-react';
+import { Save, Plus, Trash2, Edit2, ChevronDown, ChevronRight, FileText, X, Building2, Search, Briefcase, Bell, Info, Calendar, CheckCircle2, AlertCircle, Users, GripVertical, Wallet, Mail, Phone, MapPin } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -113,7 +113,8 @@ const CategorySortableList = ({
     onDelete: (id: string) => void
 }) => {
     // Filter items for this level using global categories list
-    const items = categories.filter(c => c.parentId === parentId);
+    // Fix: Handle null vs undefined for root items
+    const items = categories.filter(c => c.parentId === parentId || ((parentId === undefined || parentId === null) && (c.parentId === null || c.parentId === undefined)));
 
     return (
         <SortableContext
@@ -149,11 +150,12 @@ export const Settings: React.FC<SettingsProps> = () => {
         notificationSettings,
         transactions,
         companySettings,
+        companyData,
         // Actions
         addCategory, updateCategory, deleteCategory,
         addBankAccount, updateBankAccount, deleteBankAccount,
         addCostCenter, updateCostCenter, deleteCostCenter,
-        updateNotificationSettings, updateCompanySettings,
+        updateNotificationSettings, updateCompanySettings, updateCompanyData,
         restoreDefaultCategories
     } = useTransactions();
 
@@ -165,13 +167,21 @@ export const Settings: React.FC<SettingsProps> = () => {
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tabParam = params.get('tab');
-        if (tabParam && ['general', 'chartOfAccounts', 'bankAccounts', 'costCenters', 'users', 'notifications'].includes(tabParam)) {
+        if (tabParam && ['general', 'financial', 'chartOfAccounts', 'bankAccounts', 'costCenters', 'users', 'notifications'].includes(tabParam)) {
             setActiveTab(tabParam);
         }
     }, [location.search]);
 
     // Search State
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Delete Modal State
+    const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; type: 'category' | 'bank' | 'costCenter' | null; id: string | null; title: string }>({
+        isOpen: false,
+        type: null,
+        id: null,
+        title: ''
+    });
 
     // Category Modal State
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
@@ -250,15 +260,17 @@ export const Settings: React.FC<SettingsProps> = () => {
     const handleOpenAddCat = () => { setEditingCategory(null); setCatFormData({ name: '', parentId: '', type: 'expense' }); setIsCatModalOpen(true); };
     const handleOpenAddSubCat = (parentCategory: Category) => { setEditingCategory(null); setCatFormData({ name: '', parentId: parentCategory.id, type: parentCategory.type }); setIsCatModalOpen(true); };
     const handleOpenEditCat = (category: Category) => { setEditingCategory(category); setCatFormData({ name: category.name, parentId: category.parentId || '', type: category.type }); setIsCatModalOpen(true); };
-    const handleDeleteCat = async (categoryId: string) => {
+
+    // REPLACE: handleDeleteCat with Modal Logic
+    const handleDeleteCatCheck = (categoryId: string) => {
         const category = categories.find(c => c.id === categoryId);
         if (!category) return;
         if (category.isSystemDefault) { alert("Não é possível excluir categorias padrão do sistema."); return; }
         if (categories.some(c => c.parentId === categoryId)) { alert("Não é possível excluir uma categoria que possui subcategorias."); return; }
-        if (window.confirm(`Tem certeza que deseja excluir "${category.name}" ? `)) {
-            await deleteCategory(categoryId);
-        }
+
+        setDeleteModal({ isOpen: true, type: 'category', id: categoryId, title: category.name });
     };
+
     const handleSaveCat = async () => {
         if (!catFormData.name) return;
         if (editingCategory) {
@@ -286,7 +298,13 @@ export const Settings: React.FC<SettingsProps> = () => {
 
     const handleOpenAddBank = () => { setEditingBank(null); setBankFormData({ name: '', initialBalance: 0, initialBalanceDate: new Date().toISOString().split('T')[0], color: 'blue' }); setIsBankModalOpen(true); };
     const handleOpenEditBank = (bank: BankAccount) => { setEditingBank(bank); setBankFormData({ name: bank.name, initialBalance: bank.initialBalance, initialBalanceDate: bank.initialBalanceDate || '', color: bank.color }); setIsBankModalOpen(true); };
-    const handleDeleteBank = async (bankId: string) => { if (window.confirm('Tem certeza?')) { await deleteBankAccount(bankId); } };
+
+    // REPLACE: handleDeleteBank with Modal Logic
+    const handleDeleteBankCheck = (bankId: string) => {
+        const bank = bankAccounts.find(b => b.id === bankId);
+        if (bank) setDeleteModal({ isOpen: true, type: 'bank', id: bankId, title: bank.name });
+    };
+
     const handleSaveBank = async () => {
         if (!bankFormData.name) return;
         if (editingBank) {
@@ -299,7 +317,13 @@ export const Settings: React.FC<SettingsProps> = () => {
 
     const handleOpenAddCC = () => { setEditingCC(null); setCCFormData({ name: '', code: '' }); setIsCCModalOpen(true); };
     const handleOpenEditCC = (cc: CostCenter) => { setEditingCC(cc); setCCFormData({ name: cc.name, code: cc.code }); setIsCCModalOpen(true); };
-    const handleDeleteCC = async (ccId: string) => { if (window.confirm('Tem certeza?')) { await deleteCostCenter(ccId); } };
+
+    // REPLACE: handleDeleteCC with Modal Logic
+    const handleDeleteCCCheck = (ccId: string) => {
+        const cc = costCenters.find(c => c.id === ccId);
+        if (cc) setDeleteModal({ isOpen: true, type: 'costCenter', id: ccId, title: cc.name });
+    };
+
     const handleSaveCC = async () => {
         if (!ccFormData.name) return;
         if (editingCC) {
@@ -308,6 +332,21 @@ export const Settings: React.FC<SettingsProps> = () => {
             await addCostCenter(ccFormData);
         }
         setIsCCModalOpen(false);
+    };
+
+    // Confirm Delete Handler
+    const handleConfirmDelete = async () => {
+        if (!deleteModal.id || !deleteModal.type) return;
+
+        if (deleteModal.type === 'category') {
+            await deleteCategory(deleteModal.id);
+        } else if (deleteModal.type === 'bank') {
+            await deleteBankAccount(deleteModal.id);
+        } else if (deleteModal.type === 'costCenter') {
+            await deleteCostCenter(deleteModal.id);
+        }
+
+        setDeleteModal({ ...deleteModal, isOpen: false });
     };
 
     // Imports for DnD - Hooks
@@ -398,6 +437,7 @@ export const Settings: React.FC<SettingsProps> = () => {
                 <div className="w-full lg:w-64 flex-shrink-0">
                     <nav className="space-y-1">
                         <button onClick={() => setActiveTab('general')} className={`w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'general' ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}><Building2 size={18} /><span>Geral</span></button>
+                        <button onClick={() => setActiveTab('financial')} className={`w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'financial' ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}><Wallet size={18} /><span>Financeiro</span></button>
                         <button onClick={() => setActiveTab('chartOfAccounts')} className={`w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'chartOfAccounts' ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}><FileText size={18} /><span>Plano de Contas</span></button>
                         <button onClick={() => setActiveTab('bankAccounts')} className={`w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'bankAccounts' ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}><Building2 size={18} /><span>Contas Bancárias</span></button>
                         <button onClick={() => setActiveTab('costCenters')} className={`w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'costCenters' ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}><Briefcase size={18} /><span>Centros de Custo</span></button>
@@ -411,8 +451,110 @@ export const Settings: React.FC<SettingsProps> = () => {
                     {activeTab === 'general' && (
                         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px]">
                             <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
-                                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Configurações Gerais</h3>
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400">Definições globais da empresa e parâmetros financeiros.</p>
+                                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Dados da Empresa</h3>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400">Informações cadastrais para relatórios e documentos.</p>
+                            </div>
+                            <div className="p-6 space-y-6">
+                                {/* Company Data Form */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="col-span-2 md:col-span-1">
+                                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Nome da Empresa</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <Building2 size={16} className="text-zinc-400" />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={companyData?.name || ''}
+                                                onChange={(e) => updateCompanyData({ name: e.target.value })}
+                                                className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500"
+                                                placeholder="Razão Social ou Nome Fantasia"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="col-span-2 md:col-span-1">
+                                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">CNPJ / CPF</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <FileText size={16} className="text-zinc-400" />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={companyData?.document || ''}
+                                                onChange={(e) => updateCompanyData({ document: e.target.value })}
+                                                className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500"
+                                                placeholder="00.000.000/0000-00"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="col-span-2 md:col-span-1">
+                                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Email</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <Mail size={16} className="text-zinc-400" />
+                                            </div>
+                                            <input
+                                                type="email"
+                                                value={companyData?.email || ''}
+                                                onChange={(e) => updateCompanyData({ email: e.target.value })}
+                                                className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500"
+                                                placeholder="contato@empresa.com"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="col-span-2 md:col-span-1">
+                                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Telefone / WhatsApp</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <Phone size={16} className="text-zinc-400" />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={companyData?.phone || ''}
+                                                onChange={(e) => updateCompanyData({ phone: e.target.value })}
+                                                className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500"
+                                                placeholder="(00) 00000-0000"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="col-span-2">
+                                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Endereço</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <MapPin size={16} className="text-zinc-400" />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={companyData.address?.street ? `${companyData.address.street}, ${companyData.address.number}` : ''}
+                                                onChange={(e) => {
+                                                    // Simple parse or just free text? 
+                                                    // For MVP simplicity, let's treat update as just setting street for now or expanding fields.
+                                                    // But UI shows "Endereço". Let's assume user types full string for now or make it a free text field 'addressString' 
+                                                    // OR expand to detailed fields. Since interface expects struct, let's just update 'street' as 'full address' fallback 
+                                                    // effectively unless we add more fields.
+                                                    // Correct approach: Add more fields for Zip, City, etc.
+                                                    // For now, let's simulate updating "street" with the value.
+                                                    const cur = companyData?.address || { street: '', number: '', neighborhood: '', city: '', state: '', zipCode: '' };
+                                                    updateCompanyData({ address: { ...cur, street: e.target.value } });
+                                                }}
+                                                className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500"
+                                                placeholder="Endereço completo"
+                                            />
+                                            <p className="text-[10px] text-zinc-400 mt-1">Para atualizar detalhes (CEP, Cidade, etc), utilize os campos específicos [Em Breve].</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'financial' && (
+                        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px]">
+                            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
+                                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Parâmetros Financeiros</h3>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400">Definições para análise e gestão do caixa.</p>
                             </div>
                             <div className="p-6 space-y-6">
                                 {/* Capital de Giro */}
@@ -431,7 +573,7 @@ export const Settings: React.FC<SettingsProps> = () => {
                                                 <input
                                                     type="number"
                                                     value={companySettings?.capitalGiroNecessario || 0}
-                                                    onChange={(e) => updateCompanySettings({ ...companySettings, capitalGiroNecessario: parseFloat(e.target.value) || 0 })}
+                                                    onChange={(e) => updateCompanySettings({ ...(companySettings || {}), capitalGiroNecessario: parseFloat(e.target.value) || 0 })}
                                                     className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 font-mono font-bold outline-none focus:ring-2 focus:ring-indigo-500"
                                                 />
                                             </div>
@@ -464,7 +606,7 @@ export const Settings: React.FC<SettingsProps> = () => {
                                             onToggle={toggleGroup}
                                             onAddSub={handleOpenAddSubCat}
                                             onEdit={handleOpenEditCat}
-                                            onDelete={handleDeleteCat}
+                                            onDelete={handleDeleteCatCheck}
                                         />
                                     </div>
                                 </DndContext>
@@ -498,7 +640,7 @@ export const Settings: React.FC<SettingsProps> = () => {
                                         <button onClick={() => handleOpenEditBank(bank)} className="p-2 text-zinc-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors">
                                             <Edit2 size={16} />
                                         </button>
-                                        <button onClick={() => handleDeleteBank(bank.id)} className="p-2 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded transition-colors">
+                                        <button onClick={() => handleDeleteBankCheck(bank.id)} className="p-2 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded transition-colors">
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
@@ -510,346 +652,40 @@ export const Settings: React.FC<SettingsProps> = () => {
                     {activeTab === 'costCenters' && (
                         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px]">
                             <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center"><div><h3 className="text-lg font-bold text-zinc-900 dark:text-white">Centros de Custo</h3></div><button onClick={handleOpenAddCC} className="flex items-center space-x-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white px-3 py-1.5 rounded-lg text-sm font-medium transition"><Plus size={16} /><span>Adicionar</span></button></div>
-                            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">{costCenters.map(cc => (<div key={cc.id} className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-between"><div className="flex items-center space-x-3"><div className="w-10 h-10 rounded-full flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"><Briefcase size={20} /></div><div><h4 className="font-bold text-zinc-900 dark:text-white">{cc.name}</h4><p className="text-xs text-zinc-500 dark:text-zinc-400">{cc.code || '-'}</p></div></div><div className="flex space-x-2"><button onClick={() => handleOpenEditCC(cc)} className="p-2 text-zinc-400 hover:text-yellow-500"><Edit2 size={16} /></button><button onClick={() => handleDeleteCC(cc.id)} className="p-2 text-zinc-400 hover:text-rose-500"><Trash2 size={16} /></button></div></div>))}</div>
-                        </div>
-                    )}
-
-                    {activeTab === 'users' && (
-                        <UserManagement />
-                    )}
-
-                    {activeTab === 'notifications' && (
-                        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px]">
-                            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                            <div className="p-6 space-y-6">
+                                {/* Default Cost Centers */}
                                 <div>
-                                    <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Configuração de Alertas</h3>
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">Defina como e quando você deseja ser notificado.</p>
-                                </div>
-                                <div className="flex items-center space-x-2 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-full text-xs font-bold text-zinc-600 dark:text-zinc-300">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                    <span>Sistema Ativo</span>
-                                </div>
-                            </div>
-
-                            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Column 1: Toggles */}
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider mb-2">Tipos de Notificação</h4>
-
-                                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <div className="flex items-start space-x-3">
-                                            <div className="bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg text-rose-600 dark:text-rose-400">
-                                                <AlertCircle size={20} />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-zinc-900 dark:text-white text-sm">Contas Vencidas</h4>
-                                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Alerta imediato para contas em atraso.</p>
-                                            </div>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only peer"
-                                                checked={notificationSettings.showOverdue}
-                                                onChange={() => handleToggleNotification('showOverdue')}
-                                            />
-                                            <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                        </label>
-                                    </div>
-
-                                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <div className="flex items-start space-x-3">
-                                            <div className="bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded-lg text-yellow-600 dark:text-yellow-400">
-                                                <Bell size={20} />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-zinc-900 dark:text-white text-sm">Vencimento Hoje</h4>
-                                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Lembrete no dia exato do vencimento.</p>
-                                            </div>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only peer"
-                                                checked={notificationSettings.showDueToday}
-                                                onChange={() => handleToggleNotification('showDueToday')}
-                                            />
-                                            <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                        </label>
-                                    </div>
-
-                                    <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-start space-x-3">
-                                                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600 dark:text-blue-400">
-                                                    <Info size={20} />
+                                    <h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Padrão (Sistema)</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {[
+                                            { name: 'Administrativo', code: 'CC-001' },
+                                            { name: 'Comercial', code: 'CC-002' },
+                                            { name: 'Operacional', code: 'CC-003' },
+                                            { name: 'Marketing', code: 'CC-004' },
+                                            { name: 'TI / Tecnologia', code: 'CC-005' },
+                                            { name: 'Recursos Humanos', code: 'CC-006' }
+                                        ].map((cc, i) => (
+                                            <div key={i} className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/30 flex items-center justify-between opacity-75">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 dark:bg-zinc-800 text-gray-500">
+                                                        <Briefcase size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-zinc-700 dark:text-zinc-300">{cc.name}</h4>
+                                                        <p className="text-xs text-zinc-400">{cc.code}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <h4 className="font-bold text-zinc-900 dark:text-white text-sm">Avisar com Antecedência</h4>
-                                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Pré-aviso de contas futuras.</p>
-                                                </div>
+                                                <span className="text-xs bg-zinc-200 dark:bg-zinc-700 px-2 py-1 rounded text-zinc-500">Padrão</span>
                                             </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={notificationSettings.showUpcoming}
-                                                    onChange={() => handleToggleNotification('showUpcoming')}
-                                                />
-                                                <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                            </label>
-                                        </div>
-                                        {notificationSettings.showUpcoming && (
-                                            <div className="pl-12 flex items-center gap-3">
-                                                <input
-                                                    type="number" min="1" max="30"
-                                                    value={notificationSettings.daysInAdvance}
-                                                    onChange={(e) => handleUpdateNotification('daysInAdvance', parseInt(e.target.value) || 1)}
-                                                    className="w-16 p-2 text-center bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm font-bold outline-none focus:ring-2 focus:ring-yellow-500"
-                                                />
-                                                <span className="text-sm text-zinc-600 dark:text-zinc-300">dias antes.</span>
-                                            </div>
-                                        )}
+                                        ))}
                                     </div>
                                 </div>
-
-                                {/* Column 2: Date Filters & Real-time Preview */}
-                                <div className="space-y-6">
-                                    <div className="p-4 bg-white dark:bg-zinc-900 rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                                                <Calendar size={18} />
-                                                <h4 className="font-bold text-sm">Filtro de Período</h4>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={notificationSettings.customRangeActive}
-                                                    onChange={() => handleToggleNotification('customRangeActive')}
-                                                />
-                                                <div className="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                            </label>
-                                        </div>
-                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-                                            Se ativo, o sistema só emitirá alertas para contas com vencimento dentro deste intervalo.
-                                        </p>
-                                        <div className={`grid grid-cols-2 gap-3 transition-opacity ${notificationSettings.customRangeActive ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                                            <div>
-                                                <label className="text-[10px] uppercase font-bold text-zinc-400">Início</label>
-                                                <input
-                                                    type="date"
-                                                    value={notificationSettings.customRangeStart}
-                                                    onChange={(e) => handleUpdateNotification('customRangeStart', e.target.value)}
-                                                    className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-sm text-zinc-900 dark:text-white outline-none focus:border-yellow-500"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] uppercase font-bold text-zinc-400">Fim</label>
-                                                <input
-                                                    type="date"
-                                                    value={notificationSettings.customRangeEnd}
-                                                    onChange={(e) => handleUpdateNotification('customRangeEnd', e.target.value)}
-                                                    className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-sm text-zinc-900 dark:text-white outline-none focus:border-yellow-500"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Real-time Alert Preview */}
-                                    <div className="p-5 bg-zinc-900 dark:bg-zinc-950 rounded-xl text-white shadow-lg relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 p-3 opacity-10">
-                                            <Bell size={64} />
-                                        </div>
-                                        <h4 className="font-bold text-sm text-zinc-400 uppercase tracking-wider mb-3">Diagnóstico em Tempo Real</h4>
-                                        <div className="space-y-3 relative z-10">
-                                            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                                                <span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-rose-500"></div> Vencidas</span>
-                                                <span className="font-mono font-bold">{notificationPreview.overdue}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                                                <span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-yellow-500"></div> Hoje</span>
-                                                <span className="font-mono font-bold">{notificationPreview.dueToday}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Próximas</span>
-                                                <span className="font-mono font-bold">{notificationPreview.upcoming}</span>
-                                            </div>
-                                        </div>
-                                        <div className="mt-4 pt-3 border-t border-zinc-800 text-center">
-                                            <p className="text-xs text-zinc-500">Total de alertas ativos na tela: <span className="text-white font-bold">{notificationPreview.total}</span></p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'users' && (
-                        <UserManagement />
-                    )}
-
-                    {activeTab === 'notifications' && (
-                        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px]">
-                            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                                {/* Custom Cost Centers */}
                                 <div>
-                                    <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Configuração de Alertas</h3>
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">Defina como e quando você deseja ser notificado.</p>
-                                </div>
-                                <div className="flex items-center space-x-2 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-full text-xs font-bold text-zinc-600 dark:text-zinc-300">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                    <span>Sistema Ativo</span>
-                                </div>
-                            </div>
-
-                            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Column 1: Toggles */}
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider mb-2">Tipos de Notificação</h4>
-
-                                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <div className="flex items-start space-x-3">
-                                            <div className="bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg text-rose-600 dark:text-rose-400">
-                                                <AlertCircle size={20} />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-zinc-900 dark:text-white text-sm">Contas Vencidas</h4>
-                                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Alerta imediato para contas em atraso.</p>
-                                            </div>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only peer"
-                                                checked={notificationSettings.showOverdue}
-                                                onChange={() => handleToggleNotification('showOverdue')}
-                                            />
-                                            <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                        </label>
-                                    </div>
-
-                                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <div className="flex items-start space-x-3">
-                                            <div className="bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded-lg text-yellow-600 dark:text-yellow-400">
-                                                <Bell size={20} />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-zinc-900 dark:text-white text-sm">Vencimento Hoje</h4>
-                                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Lembrete no dia exato do vencimento.</p>
-                                            </div>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only peer"
-                                                checked={notificationSettings.showDueToday}
-                                                onChange={() => handleToggleNotification('showDueToday')}
-                                            />
-                                            <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                        </label>
-                                    </div>
-
-                                    <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-start space-x-3">
-                                                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600 dark:text-blue-400">
-                                                    <Info size={20} />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-zinc-900 dark:text-white text-sm">Avisar com Antecedência</h4>
-                                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Pré-aviso de contas futuras.</p>
-                                                </div>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={notificationSettings.showUpcoming}
-                                                    onChange={() => handleToggleNotification('showUpcoming')}
-                                                />
-                                                <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                            </label>
-                                        </div>
-                                        {notificationSettings.showUpcoming && (
-                                            <div className="pl-12 flex items-center gap-3">
-                                                <input
-                                                    type="number" min="1" max="30"
-                                                    value={notificationSettings.daysInAdvance}
-                                                    onChange={(e) => handleUpdateNotification('daysInAdvance', parseInt(e.target.value) || 1)}
-                                                    className="w-16 p-2 text-center bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm font-bold outline-none focus:ring-2 focus:ring-yellow-500"
-                                                />
-                                                <span className="text-sm text-zinc-600 dark:text-zinc-300">dias antes.</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Column 2: Date Filters & Real-time Preview */}
-                                <div className="space-y-6">
-                                    <div className="p-4 bg-white dark:bg-zinc-900 rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                                                <Calendar size={18} />
-                                                <h4 className="font-bold text-sm">Filtro de Período</h4>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={notificationSettings.customRangeActive}
-                                                    onChange={() => handleToggleNotification('customRangeActive')}
-                                                />
-                                                <div className="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                            </label>
-                                        </div>
-                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-                                            Se ativo, o sistema só emitirá alertas para contas com vencimento dentro deste intervalo.
-                                        </p>
-                                        <div className={`grid grid-cols-2 gap-3 transition-opacity ${notificationSettings.customRangeActive ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                                            <div>
-                                                <label className="text-[10px] uppercase font-bold text-zinc-400">Início</label>
-                                                <input
-                                                    type="date"
-                                                    value={notificationSettings.customRangeStart}
-                                                    onChange={(e) => handleUpdateNotification('customRangeStart', e.target.value)}
-                                                    className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-sm text-zinc-900 dark:text-white outline-none focus:border-yellow-500"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] uppercase font-bold text-zinc-400">Fim</label>
-                                                <input
-                                                    type="date"
-                                                    value={notificationSettings.customRangeEnd}
-                                                    onChange={(e) => handleUpdateNotification('customRangeEnd', e.target.value)}
-                                                    className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-sm text-zinc-900 dark:text-white outline-none focus:border-yellow-500"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Real-time Alert Preview */}
-                                    <div className="p-5 bg-zinc-900 dark:bg-zinc-950 rounded-xl text-white shadow-lg relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 p-3 opacity-10">
-                                            <Bell size={64} />
-                                        </div>
-                                        <h4 className="font-bold text-sm text-zinc-400 uppercase tracking-wider mb-3">Diagnóstico em Tempo Real</h4>
-                                        <div className="space-y-3 relative z-10">
-                                            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                                                <span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-rose-500"></div> Vencidas</span>
-                                                <span className="font-mono font-bold">{notificationPreview.overdue}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                                                <span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-yellow-500"></div> Hoje</span>
-                                                <span className="font-mono font-bold">{notificationPreview.dueToday}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Próximas</span>
-                                                <span className="font-mono font-bold">{notificationPreview.upcoming}</span>
-                                            </div>
-                                        </div>
-                                        <div className="mt-4 pt-3 border-t border-zinc-800 text-center">
-                                            <p className="text-xs text-zinc-500">Total de alertas ativos na tela: <span className="text-white font-bold">{notificationPreview.total}</span></p>
-                                        </div>
+                                    <h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Persinalizados</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {costCenters.length === 0 && <p className="text-sm text-zinc-400 italic">Nenhum centro de custo personalizado.</p>}
+                                        {costCenters.map(cc => (<div key={cc.id} className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-between"><div className="flex items-center space-x-3"><div className="w-10 h-10 rounded-full flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"><Briefcase size={20} /></div><div><h4 className="font-bold text-zinc-900 dark:text-white">{cc.name}</h4><p className="text-xs text-zinc-500 dark:text-zinc-400">{cc.code || '-'}</p></div></div><div className="flex space-x-2"><button onClick={() => handleOpenEditCC(cc)} className="p-2 text-zinc-400 hover:text-yellow-500"><Edit2 size={16} /></button><button onClick={() => handleDeleteCCCheck(cc.id)} className="p-2 text-zinc-400 hover:text-rose-500"><Trash2 size={16} /></button></div></div>))}
                                     </div>
                                 </div>
                             </div>
@@ -1026,6 +862,7 @@ export const Settings: React.FC<SettingsProps> = () => {
                             </div>
                         </div>
                     )}
+
                 </div>
             </div>
 

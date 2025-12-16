@@ -97,7 +97,7 @@ const MainLayout = () => {
             </PrivateRoute>
           } />
           <Route path="/cashflow" element={<PrivateRoute><CashFlow /></PrivateRoute>} />
-          <Route path="/simulations" element={<PrivateRoute><Simulations /></PrivateRoute>} />
+          <Route path="/simulations" element={<PrivateRoute><Simulations dateRange={globalDateRange} /></PrivateRoute>} />
           <Route path="/transactions" element={
             <PrivateRoute>
               <Transactions

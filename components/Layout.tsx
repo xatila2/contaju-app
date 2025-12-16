@@ -290,6 +290,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <nav className="flex-1 px-2 py-6 space-y-2 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-zinc-800">
             {!isCollapsed && <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 px-2 animate-in fade-in">Analytics</div>}
             <SidebarItem collapsed={isCollapsed} icon={LayoutDashboard} label="Dashboard" active={isActive('/')} onClick={() => handleNavigation('/')} />
+            <SidebarItem collapsed={isCollapsed} icon={Wallet} label="Transações" active={isActive('/transactions')} onClick={() => handleNavigation('/transactions')} />
             <SidebarItem collapsed={isCollapsed} icon={Target} label="Planejamento" active={isActive('/planning')} onClick={() => handleNavigation('/planning')} />
             <SidebarItem collapsed={isCollapsed} icon={LineChart} label="Fluxo de Caixa" active={isActive('/cashflow')} onClick={() => handleNavigation('/cashflow')} />
             <SidebarItem collapsed={isCollapsed} icon={ArrowLeftRight} label="Simulações" active={isActive('/simulations')} onClick={() => handleNavigation('/simulations')} />
@@ -297,7 +298,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
             {!isCollapsed && <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mt-8 mb-4 px-2 animate-in fade-in">Operacional</div>}
             <SidebarItem collapsed={isCollapsed} icon={ShoppingBag} label="Compras" active={isActive('/purchases')} onClick={() => handleNavigation('/purchases')} />
-            <SidebarItem collapsed={isCollapsed} icon={Wallet} label="Transações" active={isActive('/transactions')} onClick={() => handleNavigation('/transactions')} />
             <SidebarItem collapsed={isCollapsed} icon={CreditCard} label="Cartões" active={isActive('/credit-cards')} onClick={() => handleNavigation('/credit-cards')} />
             <SidebarItem collapsed={isCollapsed} icon={Scale} label="Conciliação" active={isActive('/bank-reconciliation')} onClick={() => handleNavigation('/bank-reconciliation')} />
             <SidebarItem collapsed={isCollapsed} icon={Settings} label="Configurações" active={isActive('/settings')} onClick={() => handleNavigation('/settings')} />
@@ -465,8 +465,8 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 sm:p-8 bg-zinc-50 dark:bg-zinc-950 transition-colors duration-300">
-          <div className="max-w-7xl mx-auto animate-fade-in">
+        <main className={`flex-1 overflow-y-auto transition-colors duration-300 bg-zinc-50 dark:bg-zinc-950 ${location.pathname === '/' ? 'p-0' : 'p-4 sm:p-8'}`}>
+          <div className={`${location.pathname === '/' ? 'w-full h-full' : 'max-w-7xl mx-auto animate-fade-in'}`}>
             {children}
           </div>
         </main>
