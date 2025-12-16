@@ -171,7 +171,8 @@ export const Planning: React.FC<PlanningProps> = () => {
         // categoryGroups, // No longer used
         // categoryGroupItems, // No longer used
         categoryGroupGoals,
-        setCategoryGroupGoal
+        setCategoryGroupGoal,
+        updateBudget // Desctructure new function
     } = useTransactions();
     const onUpdatePlanning = setPlanningData;
 
@@ -224,20 +225,25 @@ export const Planning: React.FC<PlanningProps> = () => {
         const numValue = parseFloat(value) || 0;
         const existing = planningData.find(p => p.month === monthId);
         let newData;
+        let updatedItem: PlanningData;
 
         if (existing) {
-            newData = planningData.map(p => p.month === monthId ? { ...p, [field]: numValue } : p);
+            updatedItem = { ...existing, [field]: numValue };
+            newData = planningData.map(p => p.month === monthId ? updatedItem : p);
         } else {
-            newData = [...planningData, {
+            updatedItem = {
                 month: monthId,
                 revenueGoal: 0,
                 expenseGoal: 0,
                 profitGoal: 0,
                 profitSharingParams: { totalPool: 0, distributedAmount: 0 },
                 [field]: numValue
-            } as PlanningData];
+            };
+            newData = [...planningData, updatedItem];
         }
-        onUpdatePlanning(newData);
+
+        onUpdatePlanning(newData); // Optimistic update
+        updateBudget(updatedItem); // Persist to DB
     };
 
     // Calculate Actuals for a specific category (Parent or Child)

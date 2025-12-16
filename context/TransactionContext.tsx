@@ -86,6 +86,7 @@ interface TransactionContextType {
     updateCompanySettings: (settings: CompanySettings) => Promise<void>;
     updateCompanyData: (data: Partial<CompanyData>) => Promise<void>;
     restoreDefaultCategories: () => Promise<void>;
+    updateBudget: (budget: PlanningData) => Promise<void>;
 }
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
@@ -875,9 +876,31 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
             updates.settings = newSettings;
         }
 
-        const { error } = await supabase.from('companies').update(updates).eq('id', companyId);
-        if (error) console.error("Update Company Data Error", error);
-        else await loadData();
+        if (data.name) updates.name = data.name;
+        if (data.document) updates.document = data.document;
+
+        if (data.email || data.phone || data.address) {
+            const { data: current, error: fetchError } = await supabase
+                .from('companies')
+                .select('settings')
+                .eq('id', companyId)
+                .single();
+
+            if (!fetchError) {
+                const currentSettings = current?.settings || {};
+                updates.settings = {
+                    ...currentSettings,
+                    email: data.email ?? currentSettings.email,
+                    phone: data.phone ?? currentSettings.phone,
+                    address: data.address ?? currentSettings.address
+                };
+            }
+        }
+
+        if (Object.keys(updates).length > 0) {
+            await supabase.from('companies').update(updates).eq('id', companyId);
+            await loadData();
+        }
     };
 
     const updateNotificationSettings = async (settings: NotificationSettings) => {
@@ -900,65 +923,60 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         else console.error("Update Company Settings Error", error);
     };
 
+    const updateBudget = async (budget: PlanningData) => {
+        if (!companyId) return;
 
-    const value = {
-        transactions,
-        categories,
-        creditCards,
-        bankAccounts,
-        costCenters,
-        purchases,
-        planningData,
-        notificationSettings,
-        bankStatementLines,
-        reconciliationMatches,
-        categoryRules,
-        setTransactions,
-        setCategories,
-        setCreditCards,
-        setBankAccounts,
-        setCostCenters,
-        setPurchases,
-        setPlanningData,
-        setNotificationSettings,
-        setBankStatementLines,
-        setReconciliationMatches,
-        handleSaveTransaction,
-        companyName,
-        handleDeletePurchase,
-        handleSavePurchase,
-        handleQuickStatusUpdate,
-        handleImportStatement,
-        handleReconcile,
-        handleAddCategoryRule,
-        handleAddCreditCard,
-        handleAddCardExpense,
-        handlePayInvoice,
-        setCategoryRules,
-        handleBatchDelete,
-        handleBatchStatusUpdate,
-        categoryGroups,
-        categoryGroupItems,
-        categoryGroupGoals,
-        companySettings,
-        setCompanySettings,
-        addCategoryGroup,
-        updateCategoryGroup,
-        deleteCategoryGroup,
-        updateCategoryGroupItems,
-        setCategoryGroupGoal,
-        // Exposed Actions
-        addCategory, updateCategory, deleteCategory,
-        addBankAccount, updateBankAccount, deleteBankAccount,
-        addCostCenter, updateCostCenter, deleteCostCenter,
-        updateNotificationSettings,
-        updateCompanySettings,
-        restoreDefaultCategories,
-        companyId // <--- Added missing companyId
+        // Check if exists
+        const { data: existing } = await supabase.from('budgets')
+            .select('id')
+            .eq('company_id', companyId)
+            .eq('month', budget.month)
+            .maybeSingle();
+
+        let error;
+
+        if (existing) {
+            const result = await supabase.from('budgets').update({
+                revenue_goal: budget.revenueGoal,
+                expense_goal: budget.expenseGoal,
+                profit_goal: budget.profitGoal,
+                profit_sharing_params: budget.profitSharingParams
+            }).eq('id', existing.id);
+            error = result.error;
+        } else {
+            const result = await supabase.from('budgets').insert({
+                company_id: companyId,
+                month: budget.month,
+                revenue_goal: budget.revenueGoal,
+                expense_goal: budget.expenseGoal,
+                profit_goal: budget.profitGoal,
+                profit_sharing_params: budget.profitSharingParams
+            });
+            error = result.error;
+        }
+
+        if (error) {
+            console.error("Error saving budget:", error);
+        } else {
+            await loadData();
+        }
     };
 
     return (
-        <TransactionContext.Provider value={value}>
+        <TransactionContext.Provider value={{
+            transactions, categories, bankAccounts, costCenters, purchases,
+            planningData, notificationSettings, bankStatementLines, reconciliationMatches, categoryRules, creditCards,
+            categoryGroups, categoryGroupItems, categoryGroupGoals, companySettings, companyData, companyId,
+            setCompanySettings, setTransactions, setCategories, setBankAccounts, setCostCenters, setPurchases,
+            setPlanningData, setNotificationSettings, setBankStatementLines, setReconciliationMatches,
+            setCategoryRules, handleSaveTransaction, companyName, handleDeletePurchase, handleSavePurchase,
+            handleQuickStatusUpdate, handleImportStatement, handleReconcile, handleAddCategoryRule, handleAddCreditCard, handleAddCardExpense, handlePayInvoice,
+            setCreditCards, handleBatchDelete, handleBatchStatusUpdate, addCategoryGroup, updateCategoryGroup,
+            deleteCategoryGroup, updateCategoryGroupItems, setCategoryGroupGoal,
+            addCategory, updateCategory, deleteCategory, addBankAccount, updateBankAccount, deleteBankAccount,
+            addCostCenter, updateCostCenter, deleteCostCenter, updateNotificationSettings, updateCompanySettings, updateCompanyData, restoreDefaultCategories,
+            updateBudget // Exposed new function
+        }}>
             {children}
         </TransactionContext.Provider>
     );
