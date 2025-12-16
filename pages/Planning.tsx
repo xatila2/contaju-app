@@ -6,8 +6,10 @@ import { Transaction, PlanningData } from '../types';
 import { CategoryGroupManager } from '../components/CategoryGroupManager';
 
 // --- Helper Functions (Module Scope) ---
-const formatMoneyCompact = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(val);
 const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+// Replace compact with standard for better consistency, or specific no-decimal if space needed
+const formatMoneyCompact = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
+
 
 // --- Helper Components (Defined OUTSIDE the main component to prevent re-renders/focus loss) ---
 
@@ -35,7 +37,7 @@ const SummaryCard = ({ title, goal, actual, type, icon: Icon }: any) => {
             <div className="flex justify-between items-start mb-4">
                 <div>
                     <p className="text-zinc-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">{title}</p>
-                    <h3 className={`text-2xl font-bold mt-1 ${textColor}`}>{formatMoneyCompact(actual)}</h3>
+                    <h3 className={`text-2xl font-bold mt-1 ${textColor}`}>{formatMoney(actual)}</h3>
                 </div>
                 <div className={`p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-500`}>
                     <Icon size={20} />
@@ -45,7 +47,7 @@ const SummaryCard = ({ title, goal, actual, type, icon: Icon }: any) => {
             <div className="space-y-2">
                 <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
                     <span>Progresso: {percentage.toFixed(1)}%</span>
-                    <span>Meta: {formatMoneyCompact(goal)}</span>
+                    <span>Meta: {formatMoney(goal)}</span>
                 </div>
                 <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-3 rounded-full overflow-hidden">
                     <div
@@ -59,14 +61,19 @@ const SummaryCard = ({ title, goal, actual, type, icon: Icon }: any) => {
 };
 
 const CellInput = ({ value, onSave, color }: { value: number, onSave: (val: string) => void, color: string }) => {
-    const [localValue, setLocalValue] = useState(value?.toString() || '');
+    const [isFocused, setIsFocused] = useState(false);
 
     useEffect(() => {
         setLocalValue(value?.toString() || '');
     }, [value]);
 
     const handleBlur = () => {
+        setIsFocused(false);
         onSave(localValue);
+    };
+
+    const handleFocus = () => {
+        setIsFocused(true);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -77,17 +84,30 @@ const CellInput = ({ value, onSave, color }: { value: number, onSave: (val: stri
 
     return (
         <div className="relative group">
-            <span className="absolute left-2 top-1.5 text-[10px] text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">Meta</span>
-            <input
-                type="number"
-                value={localValue}
-                onChange={(e) => setLocalValue(e.target.value)}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                className={`w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-2 pt-1 pb-1 text-right text-xs font-bold ${color} outline-none focus:ring-1 focus:ring-yellow-500 transition-all h-8`}
-                placeholder="-"
-            />
+            <span className={`absolute left-2 top-1.5 text-[10px] text-zinc-400 pointer-events-none transition-opacity ${isFocused || localValue ? 'opacity-100' : 'opacity-0'}`}>
+                {isFocused ? 'Valor' : 'Meta'}
+            </span>
+            {isFocused ? (
+                <input
+                    type="number"
+                    value={localValue}
+                    onChange={(e) => setLocalValue(e.target.value)}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    className={`w-full bg-white dark:bg-zinc-800 border-2 border-yellow-500 rounded px-2 pt-4 pb-1 text-right text-xs font-bold text-zinc-900 dark:text-white outline-none transition-all h-9 shadow-lg z-10`}
+                    autoFocus
+                    placeholder="0.00"
+                    step="0.01"
+                />
+            ) : (
+                <div
+                    onClick={handleFocus}
+                    className={`w-full bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 rounded px-2 pt-1 pb-1 text-right text-xs cursor-text transition-all h-8 flex items-center justify-end ${color}`}
+                >
+                    {value ? formatMoney(value) : '-'}
+                </div>
+            )}
         </div>
     );
 };
@@ -111,7 +131,7 @@ const CellActual = ({ value, goal, type }: { value: number, goal: number, type: 
         <div className="mt-1 flex justify-between items-center px-1">
             <span className="text-[10px] text-zinc-400">Real</span>
             <div className={`text-xs ${colorClass}`}>
-                {formatMoneyCompact(value)}
+                {formatMoney(value)}
             </div>
         </div>
     );
@@ -380,13 +400,13 @@ export const Planning: React.FC<PlanningProps> = () => {
                                     />
                                 ) : (
                                     <div className="h-8 flex items-center justify-end px-2 text-xs font-bold text-zinc-400 dark:text-zinc-500">
-                                        {formatMoneyCompact(goal)}
+                                        {formatMoney(goal)}
                                     </div>
                                 )}
 
                                 <div className="flex justify-between items-center px-1 mt-0.5 opacity-70">
                                     <span className="text-[9px] text-zinc-300">R</span>
-                                    <div className="text-[10px] text-zinc-400">{formatMoneyCompact(actual)}</div>
+                                    <div className="text-[10px] text-zinc-400">{formatMoney(actual)}</div>
                                 </div>
                             </td>
                         );
@@ -452,7 +472,7 @@ export const Planning: React.FC<PlanningProps> = () => {
                         <ComposedChart data={annualData.chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#52525b" strokeOpacity={0.2} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#71717a' }} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#71717a' }} tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#71717a' }} tickFormatter={(val) => formatMoneyCompact(val)} width={80} />
                             <Tooltip
                                 contentStyle={{ backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46', color: '#fff' }}
                                 formatter={(val: number) => formatMoney(val)}
@@ -520,7 +540,7 @@ export const Planning: React.FC<PlanningProps> = () => {
                                         <td key={month.id} className="px-3 py-3 border-r border-zinc-100 dark:border-zinc-800 last:border-none align-top bg-emerald-50/10">
                                             {incomeGroups.length > 0 ? (
                                                 <div className="h-8 flex items-center justify-end px-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 opacity-60">
-                                                    {formatMoneyCompact(goalVal)}
+                                                    {formatMoney(goalVal)}
                                                 </div>
                                             ) : (
                                                 <CellInput
@@ -564,7 +584,7 @@ export const Planning: React.FC<PlanningProps> = () => {
                                         <td key={month.id} className="px-3 py-3 border-r border-zinc-100 dark:border-zinc-800 last:border-none align-top bg-rose-50/10">
                                             {expenseGroups.length > 0 ? (
                                                 <div className="h-8 flex items-center justify-end px-2 text-xs font-bold text-rose-600 dark:text-rose-400 opacity-60">
-                                                    {formatMoneyCompact(goalVal)}
+                                                    {formatMoney(goalVal)}
                                                 </div>
                                             ) : (
                                                 <CellInput
@@ -616,7 +636,7 @@ export const Planning: React.FC<PlanningProps> = () => {
                                     return (
                                         <td key={month.id} className="px-3 py-3 border-r border-zinc-100 dark:border-zinc-800 last:border-none align-top">
                                             <div className="h-8 flex items-center justify-end px-2 text-xs font-bold text-yellow-600 dark:text-yellow-500 opacity-60">
-                                                {formatMoneyCompact(profGoal)}
+                                                {formatMoney(profGoal)}
                                             </div>
                                             <CellActual value={actual} goal={profGoal} type="prof" />
                                         </td>
