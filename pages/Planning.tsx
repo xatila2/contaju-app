@@ -62,6 +62,7 @@ const SummaryCard = ({ title, goal, actual, type, icon: Icon }: any) => {
 
 const CellInput = ({ value, onSave, color }: { value: number, onSave: (val: string) => void, color: string }) => {
     const [isFocused, setIsFocused] = useState(false);
+    const [localValue, setLocalValue] = useState(value?.toString() || '');
 
     useEffect(() => {
         setLocalValue(value?.toString() || '');
