@@ -7,6 +7,7 @@ interface DateRangePickerProps {
     endDate: string;
     onChange: (start: string, end: string) => void;
     align?: 'left' | 'right';
+    onShift?: (direction: 'prev' | 'next') => void;
 }
 
 type RangeOption =
@@ -20,7 +21,7 @@ type RangeOption =
     | 'custom';
 
 export const DateRangePicker: React.FC<DateRangePickerProps> = ({
-    startDate, endDate, onChange, align = 'left'
+    startDate, endDate, onChange, align = 'left', onShift
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [selectedOption, setSelectedOption] = useState<RangeOption>('thisMonth');
@@ -141,9 +142,19 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                 onClick={() => setIsOpen(!isOpen)}
                 className="flex items-center space-x-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors w-full md:w-auto"
             >
+                {onShift && (
+                    <div onClick={(e) => { e.stopPropagation(); onShift('prev'); }} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-600 rounded-md mr-1">
+                        <ChevronDown size={14} className="rotate-90 text-zinc-400" />
+                    </div>
+                )}
                 <Calendar size={16} className="text-zinc-400" />
                 <span className="font-medium">{getLabel()}</span>
-                <ChevronDown size={14} className="text-zinc-400" />
+                {onShift && (
+                    <div onClick={(e) => { e.stopPropagation(); onShift('next'); }} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-600 rounded-md ml-1">
+                        <ChevronDown size={14} className="-rotate-90 text-zinc-400" />
+                    </div>
+                )}
+                {!onShift && <ChevronDown size={14} className="text-zinc-400" />}
             </button>
 
             {isOpen && (

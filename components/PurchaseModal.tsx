@@ -74,7 +74,10 @@ export const PurchaseModal: React.FC<PurchaseModalProps> = ({
             categoryId,
             costCenterId,
             client: supplier,
-            purchaseId
+            purchaseId,
+            date: purchaseDate,
+            category: '',
+            isReconciled: false
         }));
 
         const newPurchase: Purchase = {

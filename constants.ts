@@ -88,7 +88,8 @@ const generateInitialTransactions = (): Transaction[] => {
     txs.push({
       id: `seed-rent-${i}`, description: 'Aluguel Escritório', amount: -4500, type: 'expense',
       status, launchDate: dateStr, dueDate: dateStr, paymentDate: i <= 0 ? dateStr : undefined,
-      categoryId: 'cat-4-1', bankAccountId: 'bank-1', costCenterId: 'cc-1'
+      categoryId: 'cat-4-1', bankAccountId: 'bank-1', costCenterId: 'cc-1',
+      date: dateStr, category: 'Aluguel', isReconciled: status === 'reconciled'
     });
 
     // Salaries (bigger amount)
@@ -97,7 +98,8 @@ const generateInitialTransactions = (): Transaction[] => {
     txs.push({
       id: `seed-salary-${i}`, description: 'Folha de Pagamento', amount: -45000, type: 'expense',
       status: i < 0 ? 'reconciled' : 'pending', launchDate: salaryDateStr, dueDate: salaryDateStr,
-      paymentDate: i < 0 ? salaryDateStr : undefined, categoryId: 'cat-3-1', bankAccountId: 'bank-1', costCenterId: 'cc-1'
+      paymentDate: i < 0 ? salaryDateStr : undefined, categoryId: 'cat-3-1', bankAccountId: 'bank-1', costCenterId: 'cc-1',
+      date: salaryDateStr, category: 'Salários', isReconciled: i < 0
     });
 
     // Software
@@ -106,7 +108,8 @@ const generateInitialTransactions = (): Transaction[] => {
     txs.push({
       id: `seed-sw-${i}`, description: 'Licenças de Software', amount: -1200, type: 'expense',
       status, launchDate: swDateStr, dueDate: swDateStr, paymentDate: i <= 0 ? swDateStr : undefined,
-      categoryId: 'cat-4-3', bankAccountId: 'bank-2', costCenterId: 'cc-4'
+      categoryId: 'cat-4-3', bankAccountId: 'bank-2', costCenterId: 'cc-4',
+      date: swDateStr, category: 'Software', isReconciled: status === 'reconciled'
     });
   }
 
@@ -130,7 +133,8 @@ const generateInitialTransactions = (): Transaction[] => {
       paymentDate: status === 'reconciled' ? date : undefined,
       categoryId: Math.random() > 0.5 ? 'cat-1-1' : 'cat-1-2',
       bankAccountId: Math.random() > 0.5 ? 'bank-1' : 'bank-3',
-      costCenterId: 'cc-2'
+      costCenterId: 'cc-2',
+      date: date, category: 'Vendas', isReconciled: status === 'reconciled'
     });
   }
 
@@ -154,7 +158,8 @@ const generateInitialTransactions = (): Transaction[] => {
       paymentDate: status === 'reconciled' ? date : undefined,
       categoryId: 'cat-2-1',
       bankAccountId: 'bank-1',
-      costCenterId: 'cc-3'
+      costCenterId: 'cc-3',
+      date: date, category: 'Insumos', isReconciled: status === 'reconciled'
     });
   }
 

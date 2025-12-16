@@ -122,7 +122,7 @@ export const CardConfigModal: React.FC<CardConfigModalProps> = ({
                                 <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Período de Análise</label>
                                 <select
                                     value={period}
-                                    onChange={(e) => setPeriod(e.target.value)}
+                                    onChange={(e) => setPeriod(e.target.value as any)}
                                     className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm"
                                 >
                                     <option value="7d">Últimos 7 dias</option>
