@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { X, Save, Paperclip, FileText, Repeat, ArrowRightLeft, Search, ChevronDown, Lock, ArrowDownCircle, ArrowUpCircle, Wand2, Plus } from 'lucide-react';
-import { Transaction, Category, BankAccount, CostCenter, CategoryRule } from '../types';
+import { X, Save, Paperclip, FileText, Repeat, ArrowRightLeft, Search, ChevronDown, Lock, ArrowDownCircle, ArrowUpCircle, Wand2, Plus, Check } from 'lucide-react';
+import { Transaction, Category, BankAccount, CostCenter, CategoryRule, Client } from '../types';
 import { CurrencyInput } from './CurrencyInput';
 
 interface TransactionModalProps {
@@ -14,15 +14,18 @@ interface TransactionModalProps {
   transactionToEdit: Transaction | null;
   categoryRules?: CategoryRule[];
   onAddCategoryRule?: (rule: Omit<CategoryRule, 'id'>) => void;
+  clients?: Client[];
+  onCreateClient?: (name?: string) => void;
 }
 
 export const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen, onClose, onSave, categories, bankAccounts, costCenters = [], transactionToEdit,
-  categoryRules = [], onAddCategoryRule
+  categoryRules = [], onAddCategoryRule, clients = [], onCreateClient
 }) => {
   const defaultState: Partial<Transaction> = {
     description: '',
     client: '',
+    clientId: '',
     amount: 0,
     type: 'expense',
     status: 'pending',
@@ -39,6 +42,20 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const [formData, setFormData] = useState(defaultState);
+  const [clientSearch, setClientSearch] = useState('');
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const clientDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close client dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target as Node)) {
+        setIsClientDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Custom Category Dropdown State
   const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
@@ -56,21 +73,20 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       } else {
         setFormData(defaultState);
       }
+    }
+    if (isOpen) {
+      if (transactionToEdit) {
+        setFormData({ ...transactionToEdit });
+        setClientSearch(transactionToEdit.client || '');
+      } else {
+        setFormData(defaultState);
+        setClientSearch('');
+      }
       setCategorySearch('');
     }
   }, [isOpen, transactionToEdit]);
 
   // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsCatDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -87,32 +103,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const checkCategoryRules = () => {
-    // Only run if description has value and we are on income/expense
     if (!formData.description || formData.type === 'transfer' || !categoryRules.length) return;
-
-    // Don't override if editing an existing transaction (unless user explicitly cleared it, but here we assume safety)
     if (transactionToEdit && formData.categoryId === transactionToEdit.categoryId) return;
-
-    // If user already manually selected a category, we might choose NOT to override, 
-    // or only override if the current category is empty.
-    // Requirement says: "When user fills description... suggest".
-    // Let's safe guard: Only suggest if category is empty OR if this is a fresh typing session.
-    // For now, if categoryId is set, we skip to avoid annoying the user, unless they just cleared it.
-    // Actually, improved UX: If user types "Uber" but category was "Food", maybe they want to switch. 
-    // But let's stick to: If no category selected, OR if the user just finished typing description.
 
     const descNorm = normalizeText(formData.description);
     const typeRules = categoryRules.filter(r => r.type === formData.type && r.active);
-
-    // Find matches
     const matches = typeRules.filter(rule => descNorm.includes(normalizeText(rule.keyword)));
 
     if (matches.length > 0) {
-      // Sort by priority (desc)
       matches.sort((a, b) => b.priority - a.priority);
       const bestMatch = matches[0];
-
-      // Update form
       if (bestMatch.categoryId !== formData.categoryId) {
         setFormData(prev => ({ ...prev, categoryId: bestMatch.categoryId }));
         setAutoSuggested(true);
@@ -122,7 +122,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const handleRuleCreation = () => {
     if (!onAddCategoryRule || !formData.categoryId || !newRuleKeyword) return;
-
     onAddCategoryRule({
       type: formData.type as 'income' | 'expense',
       keyword: newRuleKeyword,
@@ -130,17 +129,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       priority: 1,
       active: true
     });
-
     setShowRuleCreator(false);
     setNewRuleKeyword('');
     alert('Regra criada com sucesso!');
   };
 
   const handleSave = () => {
-    console.log('Attempting to save:', formData);
-    console.log('Categories available:', categories.length);
-
-    // Basic Validation
     if (!formData.description || !formData.amount || !formData.dueDate) {
       const missing = [];
       if (!formData.description) missing.push("Descrição");
@@ -181,13 +175,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const filteredCategories = useMemo(() => {
-    // 1. Filter by Type (Income vs Expense)
     const typeFiltered = categories.filter(c => c.type === formData.type);
-
-    // 2. Sort by Code
     const sorted = [...typeFiltered].sort((a, b) => a.code.localeCompare(b.code));
-
-    // 3. Filter by Search Term
     if (!categorySearch) return sorted;
     return sorted.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()));
   }, [categories, formData.type, categorySearch]);
@@ -197,16 +186,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     return cat ? cat.name : '';
   }, [categories, formData.categoryId]);
 
-  if (!isOpen) return null;
-
-  const isTransfer = formData.type === 'transfer';
-
   // Auto-reconcile when payment date is set
   useEffect(() => {
     if (formData.paymentDate && formData.status !== 'reconciled') {
       setFormData(prev => ({ ...prev, status: 'reconciled' }));
     }
   }, [formData.paymentDate]);
+
+  if (!isOpen) return null;
+
+  const isTransfer = formData.type === 'transfer';
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -272,13 +261,71 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             {!isTransfer && (
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Cliente / Fornecedor</label>
-                <input
-                  type="text"
-                  value={formData.client}
-                  onChange={e => setFormData({ ...formData, client: e.target.value })}
-                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-600 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
-                  placeholder="Ex: Imobiliária Silva"
-                />
+                <div className="flex gap-2">
+                  <div className="relative flex-1" ref={clientDropdownRef}>
+                    <input
+                      type="text"
+                      value={clientSearch}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setClientSearch(val);
+                        // Clear associated ID if text changes (implies potential new/different client)
+                        // Or keep it if it still matches? Safer to clear and rely on re-selection or just saving text.
+                        // Actually, let's keep it flexible:
+                        setFormData(prev => ({ ...prev, client: val }));
+                        setIsClientDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsClientDropdownOpen(true)}
+                      className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-600 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+                      placeholder="Digite o nome do cliente..."
+                    />
+
+                    {isClientDropdownOpen && (
+                      <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg max-h-60 overflow-auto">
+                        {clients.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase())).map(client => (
+                          <button
+                            key={client.id}
+                            type="button"
+                            className="w-full text-left px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 flex items-center justify-between"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, clientId: client.id, client: client.name }));
+                              setClientSearch(client.name);
+                              setIsClientDropdownOpen(false);
+                            }}
+                          >
+                            <span>{client.name}</span>
+                            {client.id === formData.clientId && <Check size={16} className="text-emerald-500" />}
+                          </button>
+                        ))}
+                        {clientSearch && !clients.find(c => c.name.toLowerCase() === clientSearch.toLowerCase()) && (
+                          <button
+                            type="button"
+                            className="w-full text-left px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-yellow-600 dark:text-yellow-500 flex items-center gap-2 border-t border-zinc-100 dark:border-zinc-800 font-medium"
+                            onClick={() => {
+                              if (onCreateClient) onCreateClient(clientSearch);
+                              setIsClientDropdownOpen(false);
+                            }}
+                          >
+                            <Plus size={16} />
+                            Cadastrar "{clientSearch}"
+                          </button>
+                        )}
+                        {clients.length === 0 && !clientSearch && (
+                          <div className="px-4 py-2 text-zinc-500 text-sm">Nenhum cliente cadastrado</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => onCreateClient && onCreateClient(clientSearch)}
+                    className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                    title="Novo Cliente"
+                    type="button"
+                  >
+                    <Plus size={20} />
+                  </button>
+                </div>
               </div>
             )}
 

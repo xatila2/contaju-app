@@ -1,5 +1,8 @@
 import { Transaction, Category, BankAccount, TransactionType } from '../types';
 
+export const defaultCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+
 // Helper to determine DRE line item from category
 // In a real app, this would be a property on the Category entity.
 // Here we use heuristics based on category name or type.

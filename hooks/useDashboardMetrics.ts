@@ -27,10 +27,18 @@ export interface DashboardMetrics {
     expenseExpected: number;
     workingCapital: number;
     financialCushion: number;
+    safeWithdrawal: number;
+    capitalDeficit: number;
+    comparisons: {
+        revenue: number;
+        expense: number;
+        profit: number;
+        balance: number;
+    };
 }
 
 export function useDashboardMetrics(dateRange: { start: string; end: string }) {
-    const { transactions, bankAccounts, planningData, categories, companySettings } = useTransactions();
+    const { transactions, bankAccounts, planningData, categories, categoryGroupGoals, companySettings } = useTransactions();
 
     if (!dateRange || !dateRange.end) {
         return { isLoading: true, metrics: null };
@@ -76,34 +84,33 @@ export function useDashboardMetrics(dateRange: { start: string; end: string }) {
         const revenueByCategory: Record<string, number> = {};
         const expenseByCategory: Record<string, number> = {};
 
+
+        // Initialize comparison vars
+        let prevMonthRevenue = 0;
         let prevMonthExpenses = 0;
         const prevMonthExpensesByCategory: Record<string, number> = {};
 
         transactions.forEach((tx) => {
             const refDate = tx.paymentDate || tx.dueDate || tx.date;
             const isReconciled = tx.status === 'reconciled';
+            const amount = Math.abs(tx.amount);
 
-            // --- A. Bank Balance Updates (All Time) ---
-            // If it's a bank transaction, update balances
+            // ... (keep Step A: Bank Logic as is) ...
             if (tx.bankAccountId && bankBalances[tx.bankAccountId]) {
                 const valSigned = tx.type === 'expense' ? -tx.amount : tx.type === 'income' ? tx.amount : 0;
-
                 if (isReconciled) {
                     bankBalances[tx.bankAccountId].current += valSigned;
-                    bankBalances[tx.bankAccountId].projected += valSigned; // Projected includes everything realized too
+                    bankBalances[tx.bankAccountId].projected += valSigned;
                     totalCurrent += valSigned;
                     totalProjected += valSigned;
-                } else if (tx.status === 'pending') {
-                    // Pending transactions affect projected balance
+                } else if (tx.status === 'pending' && refDate <= dateRange.end) {
                     bankBalances[tx.bankAccountId].projected += valSigned;
                     totalProjected += valSigned;
                 }
             }
 
-            // --- B. Period Metrics (Current Month Only) ---
+            // --- B. Period Metrics (Current Month) ---
             if (refDate && refDate.startsWith(currentMonthKey)) {
-                const amount = Math.abs(tx.amount);
-
                 if (tx.type === 'income') {
                     if (isReconciled) {
                         revenueRealized += amount;
@@ -125,10 +132,13 @@ export function useDashboardMetrics(dateRange: { start: string; end: string }) {
 
             // --- C. Previous Month Metrics ---
             if (refDate && refDate.startsWith(previousMonthKey)) {
-                if (tx.type === 'expense' && isReconciled) {
-                    prevMonthExpenses += Math.abs(tx.amount);
-                    prevMonthExpensesByCategory[tx.categoryId] =
-                        (prevMonthExpensesByCategory[tx.categoryId] || 0) + Math.abs(tx.amount);
+                if (isReconciled) {
+                    if (tx.type === 'income') {
+                        prevMonthRevenue += amount;
+                    } else if (tx.type === 'expense') {
+                        prevMonthExpenses += amount;
+                        prevMonthExpensesByCategory[tx.categoryId] = (prevMonthExpensesByCategory[tx.categoryId] || 0) + amount;
+                    }
                 }
             }
         });
@@ -178,10 +188,10 @@ export function useDashboardMetrics(dateRange: { start: string; end: string }) {
         preTransactions.forEach(tx => {
             const val = tx.type === 'income' ? Math.abs(tx.amount) : -Math.abs(tx.amount);
 
+
             // Projected always includes the tx (assuming valid status)
-            if (tx.status !== 'voided') { // If we had voided status
-                preBalanceProjected += val;
-            }
+            preBalanceProjected += val;
+
 
             // Realized only if reconciled
             if (tx.status === 'reconciled') {
@@ -226,12 +236,20 @@ export function useDashboardMetrics(dateRange: { start: string; end: string }) {
             };
         });
 
-        // 3. Derived Metrics
+        // --- Derived Metrics & Comparisons ---
         const profitRealized = revenueRealized - expenseRealized;
         const profitProjected = revenueProjected - expenseProjected;
         const profitMargin = revenueRealized > 0 ? (profitRealized / revenueRealized) * 100 : 0;
 
-        // 4. Working Capital Analysis
+        const prevMonthProfit = prevMonthRevenue - prevMonthExpenses;
+
+        const comparisons = {
+            revenue: prevMonthRevenue > 0 ? ((revenueRealized - prevMonthRevenue) / prevMonthRevenue) * 100 : 0,
+            expense: prevMonthExpenses > 0 ? ((expenseRealized - prevMonthExpenses) / prevMonthExpenses) * 100 : 0,
+            profit: prevMonthProfit !== 0 ? ((profitRealized - prevMonthProfit) / Math.abs(prevMonthProfit)) * 100 : 0,
+            balance: 0 // Balance history is harder, leaving 0 for now or calculate from history if needed
+        };
+
         const workingCapital = companySettings?.capitalGiroNecessario || 0;
         const financialCushion = totalCurrent - workingCapital;
 
@@ -252,26 +270,114 @@ export function useDashboardMetrics(dateRange: { start: string; end: string }) {
             prevMonthExpenses,
             prevMonthExpensesByCategory,
             history,
-            // New Aliased Fields
+            // Aliases
             balance: totalCurrent,
             netProfit: profitRealized,
             profitMargin,
             expenseExpected: expenseProjected,
             workingCapital,
-            financialCushion
+            financialCushion,
+            safeWithdrawal: Math.max(0, totalProjected - workingCapital),
+            capitalDeficit: totalProjected - workingCapital,
+            comparisons
         };
     }, [transactions, bankAccounts, currentMonthKey, previousMonthKey, dateRange, companySettings]); // Added companySettings dep
 
-    // Goals from Planning
+    // Goals from Planning (Pro-Rata)
     const goals = useMemo(() => {
-        const plan = planningData.find((p) => p.month === currentMonthKey);
-        // If no plan, return 0 to indicate not set. The UI handles 0 specially.
+        if (!dateRange.start || !dateRange.end) return { revenue: 0, expense: 0, profit: 0 };
+
+        const start = new Date(dateRange.start);
+        const end = new Date(dateRange.end);
+
+        let totalRevenueGoal = 0;
+        let totalExpenseGoal = 0;
+        let totalProfitGoal = 0;
+
+        // Identify leaf categories (for aggregation)
+        // A category is a leaf if NO other category lists it as parentId
+        const parentIds = new Set(categories.map(c => c.parentId).filter(Boolean));
+        const leafCategories = categories.filter(c => !parentIds.has(c.id));
+        const leafRevenueIds = new Set(leafCategories.filter(c => c.type === 'income').map(c => c.id));
+        const leafExpenseIds = new Set(leafCategories.filter(c => c.type === 'expense').map(c => c.id));
+
+        const hasIncomeCategories = categories.some(c => c.type === 'income' && !c.parentId); // Roughly checking if structure exists
+        const hasExpenseCategories = categories.some(c => c.type === 'expense' && !c.parentId);
+
+        // Iterate through months from start to end
+        let currentIter = new Date(start.getFullYear(), start.getMonth(), 1);
+
+        while (currentIter <= end) {
+            const year = currentIter.getFullYear();
+            const month = currentIter.getMonth(); // 0-indexed
+
+            // Month key for lookup (YYYY-MM)
+            const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+
+            // 1. Get Global Plan for this month
+            // Robust find: check startsWith to handle possible full-date strings from DB
+            const plan = planningData.find(p => p.month === monthKey || p.month.startsWith(monthKey)) || { revenueGoal: 0, expenseGoal: 0, profitGoal: 0 };
+
+            // 2. Calculate Effective Goals (Aggregated vs Global)
+            let monthRevenueGoal = plan.revenueGoal || 0;
+            let monthExpenseGoal = plan.expenseGoal || 0;
+
+            // If categories exist, try to aggregate from categoryGroupGoals (matches Planning.tsx logic)
+            // Revenue
+            if (hasIncomeCategories) {
+                // Sum goals for this month/year where category is a LEAF revenue category
+                const aggregatedRev = categoryGroupGoals
+                    .filter(g => g.year === year && g.month === (month + 1) && leafRevenueIds.has(g.groupId))
+                    .reduce((sum, g) => sum + (g.goalAmount || 0), 0);
+
+                // If we found aggregated goals, OR if we should force using them (even if 0 because user deleted input), use them.
+                // Planning.tsx basically says: if root categories exist, use sum.
+                // We'll stick to that.
+                monthRevenueGoal = aggregatedRev;
+            }
+
+            // Expense
+            if (hasExpenseCategories) {
+                const aggregatedExp = categoryGroupGoals
+                    .filter(g => g.year === year && g.month === (month + 1) && leafExpenseIds.has(g.groupId))
+                    .reduce((sum, g) => sum + (g.goalAmount || 0), 0);
+                monthExpenseGoal = aggregatedExp;
+            }
+
+            // Profit (Derived)
+            let monthProfitGoal = monthRevenueGoal - monthExpenseGoal;
+
+            // Calculate Overlap for Pro-Rata
+            const monthStart = new Date(year, month, 1);
+            const monthEnd = new Date(year, month + 1, 0); // Last day of month
+
+            // Overlap Start = Max(RangeStart, MonthStart)
+            const overlapStart = start > monthStart ? start : monthStart;
+
+            // Overlap End = Min(RangeEnd, MonthEnd)
+            const overlapEnd = end < monthEnd ? end : monthEnd;
+
+            if (overlapStart <= overlapEnd) {
+                const overlapDays = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                const daysInMonth = monthEnd.getDate();
+
+                const ratio = overlapDays / daysInMonth;
+
+                totalRevenueGoal += monthRevenueGoal * ratio;
+                totalExpenseGoal += monthExpenseGoal * ratio;
+                totalProfitGoal += monthProfitGoal * ratio;
+            }
+
+            // Next month
+            currentIter.setMonth(currentIter.getMonth() + 1);
+        }
+
         return {
-            revenue: plan?.revenueGoal || 0,
-            expense: plan?.expenseGoal || 0,
-            profit: plan?.profitGoal || (plan?.revenueGoal || 0) - (plan?.expenseGoal || 0) || 0,
+            revenue: totalRevenueGoal,
+            expense: totalExpenseGoal,
+            profit: totalProfitGoal,
         };
-    }, [planningData, currentMonthKey]);
+    }, [planningData, dateRange, categories, categoryGroupGoals]);
 
     const metrics: DashboardMetrics = {
         ...financials,

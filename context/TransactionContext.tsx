@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import {
     Transaction, Category, BankAccount, CostCenter, Purchase, PlanningData,
     NotificationSettings, BankStatementLine, ReconciliationMatch, CategoryRule, CreditCard,
-    CategoryGroup, CategoryGroupItem, CategoryGroupGoal, CompanySettings, CompanyData
+    CategoryGroup, CategoryGroupItem, CategoryGroupGoal, CompanySettings, CompanyData, Client
 } from '../types';
 import { supabase } from '../src/lib/supabase';
 import {
@@ -26,6 +26,12 @@ interface TransactionContextType {
     categoryGroups: CategoryGroup[];
     categoryGroupItems: CategoryGroupItem[];
     categoryGroupGoals: CategoryGroupGoal[];
+
+    // Clients
+    clients: Client[];
+    createClient: (client: Omit<Client, 'id' | 'companyId' | 'createdAt'>) => Promise<Client | null>;
+    updateClient: (id: string, updates: Partial<Client>) => Promise<void>;
+    deleteClient: (id: string) => Promise<void>;
     companySettings: CompanySettings;
     companyData: CompanyData;
     companyId: string | null;
@@ -111,6 +117,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
     const [categoryGroupItems, setCategoryGroupItems] = useState<CategoryGroupItem[]>([]);
     const [categoryGroupGoals, setCategoryGroupGoals] = useState<CategoryGroupGoal[]>([]);
+    const [clients, setClients] = useState<Client[]>([]);
 
     const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
         showOverdue: true, showDueToday: true, showUpcoming: true, daysInAdvance: 3,
@@ -229,7 +236,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 supabase.from('purchases').select('*').eq('company_id', cid),
                 supabase.from('companies').select('name, document, settings, capital_giro_necessario, notification_settings').eq('id', cid).single(),
                 supabase.from('category_rules').select('*').eq('company_id', cid),
-                supabase.from('category_goals').select('*').eq('company_id', cid)
+                supabase.from('category_goals').select('*').eq('company_id', cid),
+                supabase.from('clients').select('*').eq('company_id', cid)
             ]);
 
             console.log("📊 [Debug] Fetch Results:", {
@@ -1013,23 +1021,138 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         }
     };
 
+    const createClient = async (client: Omit<Client, 'id' | 'companyId' | 'createdAt'>) => {
+        if (!companyId) return null;
+        try {
+            const { data, error } = await supabase.from('clients').insert({
+                company_id: companyId,
+                name: client.name,
+                cpf_cnpj: client.cpfCnpj,
+                phone: client.phone,
+                address: client.address,
+                birth_date: client.birthDate
+            }).select().single();
+
+            if (error) throw error;
+            if (data) {
+                const newClient: Client = {
+                    id: data.id,
+                    companyId: data.company_id,
+                    name: data.name,
+                    cpfCnpj: data.cpf_cnpj,
+                    phone: data.phone,
+                    address: data.address,
+                    birthDate: data.birth_date,
+                    createdAt: data.created_at
+                };
+                setClients(prev => [...prev, newClient]);
+                return newClient;
+            }
+        } catch (error) {
+            console.error('Error creating client:', error);
+        }
+        return null;
+    };
+
+    const updateClient = async (id: string, updates: Partial<Client>) => {
+        try {
+            const dbUpdates: any = {};
+            if (updates.name !== undefined) dbUpdates.name = updates.name;
+            if (updates.cpfCnpj !== undefined) dbUpdates.cpf_cnpj = updates.cpfCnpj;
+            if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+            if (updates.address !== undefined) dbUpdates.address = updates.address;
+            if (updates.birthDate !== undefined) dbUpdates.birth_date = updates.birthDate;
+
+            const { error } = await supabase.from('clients').update(dbUpdates).eq('id', id);
+            if (error) throw error;
+
+            setClients(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+        } catch (error) {
+            console.error('Error updating client:', error);
+        }
+    };
+
+    const deleteClient = async (id: string) => {
+        try {
+            const { error } = await supabase.from('clients').delete().eq('id', id);
+            if (error) throw error;
+            setClients(prev => prev.filter(c => c.id !== id));
+        } catch (error) {
+            console.error('Error deleting client:', error);
+        }
+    };
+
+
     return (
         <TransactionContext.Provider value={{
-            transactions, categories, bankAccounts, costCenters, purchases,
-            planningData, notificationSettings, bankStatementLines, reconciliationMatches, categoryRules, creditCards,
-            categoryGroups, categoryGroupItems, categoryGroupGoals, companySettings, companyData, companyId,
-            setCompanySettings, setTransactions, setCategories, setBankAccounts, setCostCenters, setPurchases,
-            setPlanningData, setNotificationSettings, setBankStatementLines, setReconciliationMatches,
-            setCategoryRules, handleSaveTransaction, companyName, handleDeletePurchase, handleSavePurchase,
-            handleQuickStatusUpdate, handleImportStatement, handleReconcile, handleAddCategoryRule, handleAddCreditCard, handleAddCardExpense, handlePayInvoice,
-            setCreditCards, handleBatchDelete, handleBatchStatusUpdate, addCategoryGroup, updateCategoryGroup,
-            deleteCategoryGroup, updateCategoryGroupItems, setCategoryGroupGoal,
-            addCategory, updateCategory, deleteCategory, addBankAccount, updateBankAccount, deleteBankAccount,
-            addCostCenter, updateCostCenter, deleteCostCenter, updateNotificationSettings, updateCompanySettings, updateCompanyData, restoreDefaultCategories,
-            updateBudget // Exposed new function
+            transactions,
+            categories,
+            bankAccounts,
+            costCenters,
+            purchases,
+            planningData,
+            notificationSettings,
+            bankStatementLines,
+            reconciliationMatches,
+            categoryRules,
+            creditCards,
+            categoryGroups,
+            categoryGroupItems,
+            categoryGroupGoals,
+            clients,
+            createClient,
+            updateClient,
+            deleteClient,
+            companySettings,
+            companyData,
+            companyId,
+            setCompanySettings,
+            setTransactions,
+            setCategories,
+            setBankAccounts,
+            setCostCenters,
+            setPurchases,
+            setPlanningData,
+            setNotificationSettings,
+            setBankStatementLines,
+            setReconciliationMatches,
+            setCategoryRules,
+            handleSaveTransaction,
+            companyName,
+            handleDeletePurchase,
+            handleSavePurchase,
+            handleQuickStatusUpdate,
+            handleImportStatement,
+            handleReconcile,
+            handleAddCategoryRule,
+            handleAddCreditCard,
+            handleAddCardExpense,
+            handlePayInvoice,
+            setCreditCards,
+            handleBatchDelete,
+            handleBatchStatusUpdate,
+            addCategoryGroup,
+            updateCategoryGroup,
+            deleteCategoryGroup,
+            updateCategoryGroupItems,
+            setCategoryGroupGoal,
+            addCategory,
+            updateCategory,
+            deleteCategory,
+            addBankAccount,
+            updateBankAccount,
+            deleteBankAccount,
+            addCostCenter,
+            updateCostCenter,
+            deleteCostCenter,
+            updateNotificationSettings,
+            updateCompanySettings,
+            updateCompanyData,
+            restoreDefaultCategories,
+            updateBudget
         }}>
             {children}
-        </TransactionContext.Provider>
+        </TransactionContext.Provider >
     );
 };
 

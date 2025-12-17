@@ -120,7 +120,8 @@ export interface Transaction {
   invoiceId?: string;
 
   // Additional fields
-  client?: string;
+  client?: string; // Legacy text field
+  clientId?: string; // Linked client ID
   notes?: string;
   isReconciled: boolean;
   recurrence?: RecurrenceConfig;
@@ -136,6 +137,19 @@ export interface Transaction {
 
   // Transfer logic
   destinationBankAccountId?: string;
+  // Transfer logic
+
+}
+
+export interface Client {
+  id: string;
+  companyId: string;
+  name: string;
+  cpfCnpj?: string;
+  phone?: string;
+  address?: string;
+  birthDate?: string;
+  createdAt: string;
 }
 
 export interface Purchase {

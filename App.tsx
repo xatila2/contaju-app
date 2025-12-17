@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { TransactionModal } from './components/TransactionModal';
+import { ClientModal } from './components/ClientModal';
 import { Dashboard } from './pages/Dashboard';
 import { CashFlow } from './pages/CashFlow';
 import { Simulations } from './pages/Simulations';
@@ -12,6 +13,7 @@ import { BankReconciliation } from './pages/BankReconciliation';
 import { Planning } from './pages/Planning';
 import { Purchases } from './pages/Purchases';
 import { CreditCards } from './pages/CreditCards';
+import { ClientsPage } from './pages/ClientsPage';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { AuthProvider } from './context/AuthContext';
@@ -33,14 +35,16 @@ const MainLayout = () => {
   });
 
   const {
-    transactions, categories, bankAccounts, costCenters, notificationSettings, categoryRules,
-    handleSaveTransaction, handleAddCategoryRule
+    transactions, categories, bankAccounts, costCenters, notificationSettings, categoryRules, clients,
+    handleSaveTransaction, handleAddCategoryRule, createClient
   } = useTransactions();
 
   const [selectedBankFilter, setSelectedBankFilter] = useState<string | undefined>(undefined);
   const [highlightTransactionId, setHighlightTransactionId] = useState<string | null>(null);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -113,6 +117,7 @@ const MainLayout = () => {
           <Route path="/planning" element={<PrivateRoute><Planning /></PrivateRoute>} />
           <Route path="/purchases" element={<PrivateRoute><Purchases /></PrivateRoute>} />
           <Route path="/credit-cards" element={<PrivateRoute><CreditCards /></PrivateRoute>} />
+          <Route path="/clients" element={<PrivateRoute><ClientsPage /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
@@ -132,6 +137,23 @@ const MainLayout = () => {
         transactionToEdit={editingTransaction}
         categoryRules={categoryRules}
         onAddCategoryRule={handleAddCategoryRule}
+        clients={clients}
+        onCreateClient={(name) => {
+          setNewClientName(name || '');
+          setIsClientModalOpen(true);
+        }}
+      />
+
+      <ClientModal
+        isOpen={isClientModalOpen}
+        initialName={newClientName}
+        onClose={() => setIsClientModalOpen(false)}
+        onSave={async (clientData) => {
+          const newClient = await createClient(clientData);
+          if (newClient) {
+            setIsClientModalOpen(false);
+          }
+        }}
       />
     </>
   );

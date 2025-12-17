@@ -2,7 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown, Building2, Wallet, PiggyBank, ShieldCheck, AlertTriangle, X } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown, Building2, Wallet, PiggyBank, ShieldCheck, AlertTriangle, X, Target } from 'lucide-react';
+import { SemiDonutChart } from './SemiDonutChart';
+import { GoalCard } from './GoalCard';
+import { SafeWithdrawalCard } from './SafeWithdrawalCard';
 
 export const GoldDashboard: React.FC<{
     dateRange: { start: string, end: string };
@@ -86,74 +89,143 @@ export const GoldDashboard: React.FC<{
                         <h1 className="text-3xl font-bold text-white mb-1">Dashboard Financeiro</h1>
                         <p className="text-gray-400 text-sm">Visão geral interativa da sua saúde financeira.</p>
                     </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-                        <div className="flex p-1 rounded-lg bg-dark-700 border border-dark-600">
-                            <span className="px-4 py-1.5 text-sm font-medium text-gray-400">
-                                {new Date(dateRange.start).toLocaleDateString()} - {new Date(dateRange.end).toLocaleDateString()}
-                            </span>
-                        </div>
-                    </div>
+
                 </header>
 
-                {/* KPI Cards Row */}
+                {/* KPI Cards Row (Merged with Goals) */}
                 <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-enter delay-100">
-                    {/* Card 1: Saldo Total (Double Click for Bank Breakdown) */}
+                    {/* Card 1: Saldo Total */}
                     <article
                         onDoubleClick={() => setShowBankModal(true)}
-                        className="bg-dark-800 p-6 rounded-xl border border-dark-600 corner-accent shadow-glow-card group hover:border-gold-500/50 hover:shadow-glow-gold hover:-translate-y-1 transition-all duration-300 relative overflow-hidden cursor-pointer select-none"
-                        title="Duplo clique para ver detalhes por banco"
+                        className="bg-dark-800 p-5 rounded-xl border border-dark-600 corner-accent shadow-glow-card group hover:border-gold-500/50 hover:shadow-glow-gold hover:-translate-y-1 transition-all duration-300 relative overflow-hidden cursor-pointer select-none min-h-[180px] flex flex-col justify-between"
                     >
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-2 rounded-lg bg-dark-700 text-gold-400 border border-dark-600 group-hover:bg-gold-500/20 transition-colors">
-                                <Building2 size={24} className="drop-shadow-[0_0_5px_rgba(255,215,0,0.5)]" />
+                        <div className="absolute -right-10 -top-10 w-32 h-32 bg-gold-500/10 blur-[60px] opacity-20 group-hover:opacity-40 transition duration-500 pointer-events-none"></div>
+
+                        <div className="flex justify-between items-start z-10">
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="p-1.5 rounded-lg bg-dark-700 text-gold-400 border border-dark-600 group-hover:bg-gold-500/20 transition-colors">
+                                        <Building2 size={16} className="drop-shadow-[0_0_5px_rgba(255,215,0,0.5)]" />
+                                    </div>
+                                    <h3 className="text-xs font-medium uppercase tracking-wider text-gray-400">Saldo Total</h3>
+                                </div>
+                                <p className="text-2xl font-bold text-white tracking-tight group-hover:text-gold-400 transition-colors">{formatCurrency(metrics.balance)}</p>
                             </div>
                             <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${metrics.balance >= 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                {metrics.balance >= 0 ? '+' : ''}{metrics.profitMargin.toFixed(1)}% (Mg)
+                                {metrics.balance >= 0 ? '+' : ''}{metrics.profitMargin.toFixed(1)}%
                             </span>
                         </div>
-                        <h3 className="text-base font-semibold text-gray-300 mb-1">Saldo Total</h3>
-                        <p className="text-4xl font-bold text-white tracking-tight group-hover:text-gold-400 transition-colors">{formatCurrency(metrics.balance)}</p>
-                        <div className="absolute bottom-2 right-4 flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                            <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-pulse"></span>
-                            <p className="text-[10px] text-gold-500 uppercase font-bold tracking-wider">Duplo Clique</p>
+
+                        <div className="mt-2 text-xs flex justify-between items-center text-gray-500 border-t border-dark-700/50 pt-3">
+                            <span>Previsto: {formatCurrency(metrics.totalProjected)}</span>
+                            <span className="text-[10px] text-gold-500 uppercase font-bold tracking-wider opacity-60 group-hover:opacity-100 transition-opacity">Duplo Clique</span>
                         </div>
                     </article>
 
-                    {/* Card 2: Receita */}
-                    <article className="bg-dark-800 p-6 rounded-xl border border-dark-600 corner-accent shadow-glow-card group hover:border-green-500/50 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-2 rounded-lg bg-dark-700 text-green-400 border border-dark-600 group-hover:bg-green-500/20 transition-colors">
-                                <Wallet size={24} className="drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />
+                    {/* Card 2: Receita (With Goal) */}
+                    <article className="bg-dark-800 p-5 rounded-xl border border-dark-600 corner-accent shadow-glow-card group hover:border-green-500/50 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
+                        <div className="absolute -right-10 -top-10 w-32 h-32 bg-green-500/10 blur-[60px] opacity-20 group-hover:opacity-40 transition duration-500 pointer-events-none"></div>
+
+                        <div className="flex justify-between items-start z-10">
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="p-1.5 rounded-lg bg-dark-700 text-green-400 border border-dark-600 group-hover:bg-green-500/20 transition-colors">
+                                        <Wallet size={16} className="drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />
+                                    </div>
+                                    <h3 className="text-xs font-medium uppercase tracking-wider text-gray-400">Receita Realizada</h3>
+                                    <span className={`text-[10px] ml-2 px-1.5 py-0.5 rounded border ${metrics.comparisons.revenue >= 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                        {metrics.comparisons.revenue > 0 ? '+' : ''}{metrics.comparisons.revenue.toFixed(0)}%
+                                    </span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-2xl font-bold text-white tracking-tight group-hover:text-green-400 transition-colors">{formatCurrency(metrics.revenueRealized)}</span>
+                                </div>
+                            </div>
+                            {/* Embedded Chart */}
+                            <div className="w-24 h-24 -mr-2 -mt-2">
+                                <SemiDonutChart type="revenue" value={metrics.revenueRealized} target={metrics.goals.revenue} label="" />
                             </div>
                         </div>
-                        <h3 className="text-sm font-medium text-gray-400 mb-1">Receita Realizada</h3>
-                        <p className="text-3xl font-bold text-white tracking-tight group-hover:text-green-400 transition-colors">{formatCurrency(metrics.revenueRealized)}</p>
-                    </article>
-
-                    {/* Card 3: Despesas */}
-                    <article className="bg-dark-800 p-6 rounded-xl border border-dark-600 corner-accent shadow-glow-card group hover:border-red-500/50 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-2 rounded-lg bg-dark-700 text-red-400 border border-dark-600 group-hover:bg-red-500/20 transition-colors">
-                                <PiggyBank size={24} className="drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />
-                            </div>
-                        </div>
-                        <h3 className="text-sm font-medium text-gray-400 mb-1">Despesas Realizadas</h3>
-                        <p className="text-3xl font-bold text-white tracking-tight group-hover:text-red-400 transition-colors">{formatCurrency(metrics.expenseRealized)}</p>
-                    </article>
-
-                    {/* Card 4: Lucro */}
-                    <article className="bg-dark-800 p-6 rounded-xl border border-dark-600 corner-accent shadow-glow-card group hover:border-gold-500/50 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-2 rounded-lg bg-dark-700 text-gold-400 border border-dark-600 group-hover:bg-gold-500/20 transition-colors">
-                                <TrendingUp size={24} className="drop-shadow-[0_0_5px_rgba(255,215,0,0.5)]" />
-                            </div>
-                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${metrics.netProfit >= 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                {metrics.netProfit >= 0 ? 'Lucro' : 'Prejuízo'}
+                        <div className="flex justify-between items-center text-xs border-t border-dark-700/50 pt-3 mt-2">
+                            <div className="text-gray-500">Previsto: {formatCurrency(metrics.revenueProjected)}</div>
+                            <span className={`font-mono ${metrics.revenueRealized - metrics.goals.revenue >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {metrics.revenueRealized - metrics.goals.revenue > 0 ? '+' : ''}{formatCurrency(metrics.revenueRealized - metrics.goals.revenue)}
                             </span>
                         </div>
-                        <h3 className="text-sm font-medium text-gray-400 mb-1">Resultado Líquido</h3>
-                        <p className="text-3xl font-bold text-white tracking-tight group-hover:text-gold-400 transition-colors">{formatCurrency(metrics.netProfit)}</p>
                     </article>
+
+                    {/* Card 3: Despesas (With Goal) */}
+                    <article className="bg-dark-800 p-5 rounded-xl border border-dark-600 corner-accent shadow-glow-card group hover:border-red-500/50 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
+                        <div className="absolute -right-10 -top-10 w-32 h-32 bg-red-500/10 blur-[60px] opacity-20 group-hover:opacity-40 transition duration-500 pointer-events-none"></div>
+
+                        <div className="flex justify-between items-start z-10">
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="p-1.5 rounded-lg bg-dark-700 text-red-400 border border-dark-600 group-hover:bg-red-500/20 transition-colors">
+                                        <PiggyBank size={16} className="drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />
+                                    </div>
+                                    <h3 className="text-xs font-medium uppercase tracking-wider text-gray-400">Despesas Realizadas</h3>
+                                    <span className={`text-[10px] ml-2 px-1.5 py-0.5 rounded border ${metrics.comparisons.expense <= 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                        {metrics.comparisons.expense > 0 ? '+' : ''}{metrics.comparisons.expense.toFixed(0)}%
+                                    </span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-2xl font-bold text-white tracking-tight group-hover:text-red-400 transition-colors">{formatCurrency(metrics.expenseRealized)}</span>
+                                </div>
+                            </div>
+                            {/* Embedded Chart */}
+                            <div className="w-24 h-24 -mr-2 -mt-2">
+                                <SemiDonutChart type="expense" value={metrics.expenseRealized} target={metrics.goals.expense} label="" />
+                            </div>
+                        </div>
+                        <div className="flex justify-between items-center text-xs border-t border-dark-700/50 pt-3 mt-2">
+                            <div className="text-gray-500">Previsto: {formatCurrency(metrics.expenseProjected)}</div>
+                            <span className={`font-mono ${metrics.goals.expense - metrics.expenseRealized >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {metrics.expenseRealized - metrics.goals.expense > 0 ? '+' : ''}{formatCurrency(metrics.expenseRealized - metrics.goals.expense)}
+                            </span>
+                        </div>
+                    </article>
+
+                    {/* Card 4: Lucro (With Goal) */}
+                    <article className="bg-dark-800 p-5 rounded-xl border border-dark-600 corner-accent shadow-glow-card group hover:border-gold-500/50 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
+                        <div className="absolute -right-10 -top-10 w-32 h-32 bg-amber-500/10 blur-[60px] opacity-20 group-hover:opacity-40 transition duration-500 pointer-events-none"></div>
+
+                        <div className="flex justify-between items-start z-10">
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="p-1.5 rounded-lg bg-dark-700 text-gold-400 border border-dark-600 group-hover:bg-gold-500/20 transition-colors">
+                                        <TrendingUp size={16} className="drop-shadow-[0_0_5px_rgba(255,215,0,0.5)]" />
+                                    </div>
+                                    <h3 className="text-xs font-medium uppercase tracking-wider text-gray-400">Resultado Líquido</h3>
+                                    <span className={`text-[10px] ml-2 px-1.5 py-0.5 rounded border ${metrics.comparisons.profit >= 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                        {metrics.comparisons.profit > 0 ? '+' : ''}{metrics.comparisons.profit.toFixed(0)}%
+                                    </span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-2xl font-bold text-white tracking-tight group-hover:text-gold-400 transition-colors">{formatCurrency(metrics.netProfit)}</span>
+                                </div>
+                            </div>
+                            {/* Embedded Chart */}
+                            <div className="w-24 h-24 -mr-2 -mt-2">
+                                <SemiDonutChart type="profit" value={metrics.netProfit} target={metrics.goals.profit} label="" />
+                            </div>
+                        </div>
+                        <div className="flex justify-between items-center text-xs border-t border-dark-700/50 pt-3 mt-2">
+                            <div className="text-gray-500">Previsto: {formatCurrency(metrics.profitProjected)}</div>
+                            <span className={`font-mono ${metrics.netProfit - metrics.goals.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {metrics.netProfit - metrics.goals.profit > 0 ? '+' : ''}{formatCurrency(metrics.netProfit - metrics.goals.profit)}
+                            </span>
+                        </div>
+
+                    </article>
+
+                    {/* Card 5 (Strategic): Safe Withdrawal */}
+                    <SafeWithdrawalCard
+                        balance={metrics.totalProjected}
+                        workingCapital={metrics.workingCapital}
+                        safeWithdrawal={metrics.safeWithdrawal}
+                        capitalDeficit={metrics.capitalDeficit}
+                    />
                 </section>
 
                 {/* Middle Section: Chart & Cushion */}
@@ -375,31 +447,33 @@ export const GoldDashboard: React.FC<{
             </div>
 
             {/* Bank Breakdown Modal */}
-            {showBankModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowBankModal(false)}>
-                    <div className="bg-dark-800 border border-gold-500/30 rounded-2xl p-6 w-full max-w-md shadow-2xl relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowBankModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={20} /></button>
-                        <h2 className="text-xl font-bold text-white mb-4">Detalhamento de Saldos</h2>
-                        <p className="text-sm text-gray-400 mb-6">Saldo atual consolidado por conta bancária.</p>
+            {
+                showBankModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowBankModal(false)}>
+                        <div className="bg-dark-800 border border-gold-500/30 rounded-2xl p-6 w-full max-w-md shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => setShowBankModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={20} /></button>
+                            <h2 className="text-xl font-bold text-white mb-4">Detalhamento de Saldos</h2>
+                            <p className="text-sm text-gray-400 mb-6">Saldo atual consolidado por conta bancária.</p>
 
-                        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                            {Object.entries(metrics.bankBalances).map(([id, bank]) => (
-                                <div key={id} className="flex justify-between items-center p-3 rounded-lg bg-dark-700/50 border border-dark-600">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: bank.color }}></div>
-                                        <span className="font-medium text-white">{bank.name}</span>
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                                {Object.entries(metrics.bankBalances).map(([id, bank]: [string, any]) => (
+                                    <div key={id} className="flex justify-between items-center p-3 rounded-lg bg-dark-700/50 border border-dark-600">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: bank.color }}></div>
+                                            <span className="font-medium text-white">{bank.name}</span>
+                                        </div>
+                                        <span className="font-bold text-white">{formatCurrency(bank.current)}</span>
                                     </div>
-                                    <span className="font-bold text-white">{formatCurrency(bank.current)}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="mt-6 pt-4 border-t border-dark-600 flex justify-between items-center">
-                            <span className="text-gray-400">Total Consolidado</span>
-                            <span className="text-xl font-bold text-gold-400">{formatCurrency(metrics.balance)}</span>
+                                ))}
+                            </div>
+                            <div className="mt-6 pt-4 border-t border-dark-600 flex justify-between items-center">
+                                <span className="text-gray-400">Total Consolidado</span>
+                                <span className="text-xl font-bold text-gold-400">{formatCurrency(metrics.balance)}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };

@@ -24,7 +24,8 @@ import {
   BarChart3,
   Landmark,
   CreditCard,
-  LogOut
+  LogOut,
+  Users
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DateRangePicker } from './DateRangePicker';
@@ -298,6 +299,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
             {!isCollapsed && <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mt-8 mb-4 px-2 animate-in fade-in">Operacional</div>}
             <SidebarItem collapsed={isCollapsed} icon={ShoppingBag} label="Compras" active={isActive('/purchases')} onClick={() => handleNavigation('/purchases')} />
+            <SidebarItem collapsed={isCollapsed} icon={Users} label="Clientes" active={isActive('/clients')} onClick={() => handleNavigation('/clients')} />
             <SidebarItem collapsed={isCollapsed} icon={CreditCard} label="Cartões" active={isActive('/credit-cards')} onClick={() => handleNavigation('/credit-cards')} />
             <SidebarItem collapsed={isCollapsed} icon={Scale} label="Conciliação" active={isActive('/bank-reconciliation')} onClick={() => handleNavigation('/bank-reconciliation')} />
             <SidebarItem collapsed={isCollapsed} icon={Settings} label="Configurações" active={isActive('/settings')} onClick={() => handleNavigation('/settings')} />

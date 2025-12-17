@@ -784,39 +784,27 @@ export const Settings: React.FC<SettingsProps> = () => {
                         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px]">
                             <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center"><div><h3 className="text-lg font-bold text-zinc-900 dark:text-white">Centros de Custo</h3></div><button onClick={handleOpenAddCC} className="flex items-center space-x-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white px-3 py-1.5 rounded-lg text-sm font-medium transition"><Plus size={16} /><span>Adicionar</span></button></div>
                             <div className="p-6 space-y-6">
-                                {/* Default Cost Centers */}
+                                {/* All Cost Centers */}
                                 <div>
-                                    <h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Padrão (Sistema)</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {[
-                                            { name: 'Administrativo', code: 'CC-001' },
-                                            { name: 'Comercial', code: 'CC-002' },
-                                            { name: 'Operacional', code: 'CC-003' },
-                                            { name: 'Marketing', code: 'CC-004' },
-                                            { name: 'TI / Tecnologia', code: 'CC-005' },
-                                            { name: 'Recursos Humanos', code: 'CC-006' }
-                                        ].map((cc, i) => (
-                                            <div key={i} className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/30 flex items-center justify-between opacity-75">
+                                        {costCenters.length === 0 && <p className="text-sm text-zinc-400 italic">Nenhum centro de custo encontrado.</p>}
+                                        {costCenters.map(cc => (
+                                            <div key={cc.id} className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-between">
                                                 <div className="flex items-center space-x-3">
-                                                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 dark:bg-zinc-800 text-gray-500">
+                                                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
                                                         <Briefcase size={20} />
                                                     </div>
                                                     <div>
-                                                        <h4 className="font-bold text-zinc-700 dark:text-zinc-300">{cc.name}</h4>
-                                                        <p className="text-xs text-zinc-400">{cc.code}</p>
+                                                        <h4 className="font-bold text-zinc-900 dark:text-white">{cc.name}</h4>
+                                                        <p className="text-xs text-zinc-500 dark:text-zinc-400">{cc.code || '-'}</p>
                                                     </div>
                                                 </div>
-                                                <span className="text-xs bg-zinc-200 dark:bg-zinc-700 px-2 py-1 rounded text-zinc-500">Padrão</span>
+                                                <div className="flex space-x-2">
+                                                    <button onClick={() => handleOpenEditCC(cc)} className="p-2 text-zinc-400 hover:text-yellow-500"><Edit2 size={16} /></button>
+                                                    <button onClick={() => handleDeleteCCCheck(cc.id)} className="p-2 text-zinc-400 hover:text-rose-500"><Trash2 size={16} /></button>
+                                                </div>
                                             </div>
                                         ))}
-                                    </div>
-                                </div>
-                                {/* Custom Cost Centers */}
-                                <div>
-                                    <h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Persinalizados</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {costCenters.length === 0 && <p className="text-sm text-zinc-400 italic">Nenhum centro de custo personalizado.</p>}
-                                        {costCenters.map(cc => (<div key={cc.id} className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-between"><div className="flex items-center space-x-3"><div className="w-10 h-10 rounded-full flex items-center justify-center bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"><Briefcase size={20} /></div><div><h4 className="font-bold text-zinc-900 dark:text-white">{cc.name}</h4><p className="text-xs text-zinc-500 dark:text-zinc-400">{cc.code || '-'}</p></div></div><div className="flex space-x-2"><button onClick={() => handleOpenEditCC(cc)} className="p-2 text-zinc-400 hover:text-yellow-500"><Edit2 size={16} /></button><button onClick={() => handleDeleteCCCheck(cc.id)} className="p-2 text-zinc-400 hover:text-rose-500"><Trash2 size={16} /></button></div></div>))}
                                     </div>
                                 </div>
                             </div>
