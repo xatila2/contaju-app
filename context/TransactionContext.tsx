@@ -221,7 +221,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
             ] = await Promise.all([
                 supabase.from('categories').select('*').eq('company_id', cid),
                 supabase.from('bank_accounts').select('*').eq('company_id', cid),
-                supabase.from('cost_centers').select('*').eq('company_id', cid),
+                supabase.from('cost_centers').select('*').or(`company_id.eq.${cid},company_id.is.null`),
                 supabase.from('transactions').select('*').eq('company_id', cid),
                 supabase.from('credit_cards').select('*').eq('company_id', cid),
                 supabase.from('credit_card_transactions').select('*').eq('company_id', cid),

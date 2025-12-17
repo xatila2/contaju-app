@@ -679,8 +679,9 @@ export const Transactions: React.FC<TransactionsProps> = ({
         const overdueCount = pendingTxs.filter(t => t.status === 'overdue' || t.dueDate < today).length;
         const dueTodayCount = pendingTxs.filter(t => t.dueDate === today).length;
         const toDueCount = pendingTxs.filter(t => t.dueDate > today).length;
+        const reconciledCount = filteredForMetrics.filter(t => t.status === 'reconciled').length;
 
-        return { totalValue, overdueCount, dueTodayCount, toDueCount };
+        return { totalValue, overdueCount, dueTodayCount, toDueCount, reconciledCount };
     }, [transactions, activeTab, filters]);
 
     const MetricCard = ({ title, value, count, active, onClick, colorClass }: any) => (
@@ -735,13 +736,21 @@ export const Transactions: React.FC<TransactionsProps> = ({
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <MetricCard
                     title="Total no Período"
                     value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalValue)}
                     active={filters.status === 'all'}
                     onClick={() => setFilters({ ...filters, status: 'all' })}
                     colorClass="zinc"
+                />
+                <MetricCard
+                    title="Pagos"
+                    value={metrics.reconciledCount}
+                    count="Concluídos"
+                    active={filters.status === 'reconciled'}
+                    onClick={() => setFilters({ ...filters, status: 'reconciled' })}
+                    colorClass="emerald"
                 />
                 <MetricCard
                     title="A Vencer"
