@@ -201,12 +201,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const isTransfer = formData.type === 'transfer';
 
+  // Auto-reconcile when payment date is set
+  useEffect(() => {
+    if (formData.paymentDate && formData.status !== 'reconciled') {
+      setFormData(prev => ({ ...prev, status: 'reconciled' }));
+    }
+  }, [formData.paymentDate]);
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className={`bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col max-h-[90vh] transition-colors duration-500
-          ${formData.type === 'expense' ? 'bg-gradient-to-b from-rose-50/50 to-white dark:from-rose-950/10 dark:to-zinc-900 border-t-4 border-t-rose-500' : ''}
-          ${formData.type === 'income' ? 'bg-gradient-to-b from-emerald-50/50 to-white dark:from-emerald-950/10 dark:to-zinc-900 border-t-4 border-t-emerald-500' : ''}
-          ${formData.type === 'transfer' ? 'bg-gradient-to-b from-blue-50/50 to-white dark:from-blue-950/10 dark:to-zinc-900 border-t-4 border-t-blue-500' : ''}
+          ${formData.type === 'expense' ? 'bg-gradient-to-b from-rose-100 to-white dark:from-rose-950/40 dark:to-zinc-900 border-t-4 border-t-rose-600' : ''}
+          ${formData.type === 'income' ? 'bg-gradient-to-b from-emerald-100 to-white dark:from-emerald-950/40 dark:to-zinc-900 border-t-4 border-t-emerald-600' : ''}
+          ${formData.type === 'transfer' ? 'bg-gradient-to-b from-blue-100 to-white dark:from-blue-950/40 dark:to-zinc-900 border-t-4 border-t-blue-600' : ''}
         `}>
         <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-transparent">
           <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
@@ -222,21 +229,21 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           {/* Transaction Type Tabs */}
           <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 mb-6">
             <button
-              className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-lg transition-all text-sm font-bold ${formData.type === 'expense' ? 'bg-white dark:bg-zinc-700 shadow-md text-rose-600 dark:text-rose-400 ring-1 ring-rose-100 dark:ring-0' : 'text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700/50'}`}
+              className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-lg transition-all text-sm font-bold ${formData.type === 'expense' ? 'bg-white dark:bg-zinc-700 shadow-md text-rose-600 dark:text-rose-400 ring-1 ring-rose-200 dark:ring-0' : 'text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700/50'}`}
               onClick={() => setFormData({ ...formData, type: 'expense', categoryId: '' })}
             >
               <ArrowDownCircle size={18} />
               <span>Pagar</span>
             </button>
             <button
-              className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-lg transition-all text-sm font-bold ${formData.type === 'income' ? 'bg-white dark:bg-zinc-700 shadow-md text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-100 dark:ring-0' : 'text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700/50'}`}
+              className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-lg transition-all text-sm font-bold ${formData.type === 'income' ? 'bg-white dark:bg-zinc-700 shadow-md text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-200 dark:ring-0' : 'text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700/50'}`}
               onClick={() => setFormData({ ...formData, type: 'income', categoryId: '' })}
             >
               <ArrowUpCircle size={18} />
               <span>Receber</span>
             </button>
             <button
-              className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-lg transition-all text-sm font-bold ${formData.type === 'transfer' ? 'bg-white dark:bg-zinc-700 shadow-md text-blue-600 dark:text-blue-400 ring-1 ring-blue-100 dark:ring-0' : 'text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700/50'}`}
+              className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-lg transition-all text-sm font-bold ${formData.type === 'transfer' ? 'bg-white dark:bg-zinc-700 shadow-md text-blue-600 dark:text-blue-400 ring-1 ring-blue-200 dark:ring-0' : 'text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700/50'}`}
               onClick={() => setFormData({ ...formData, type: 'transfer' })}
             >
               <ArrowRightLeft size={18} />

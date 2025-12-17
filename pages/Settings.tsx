@@ -140,6 +140,310 @@ const CategorySortableList = ({
 };
 
 
+const CompanyGeneralSettings = ({ companyData, updateCompanyData }: { companyData: any, updateCompanyData: (d: any) => Promise<void> }) => {
+    const [localData, setLocalData] = useState(companyData || {});
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        setLocalData(companyData || {});
+        setHasChanges(false);
+    }, [companyData]);
+
+    const handleChange = (field: string, value: any) => {
+        const newData = { ...localData, [field]: value };
+        // For address, handle nested update simpler
+        if (field === 'street') {
+            newData.address = { ...localData.address, street: value };
+            delete newData.street; // Cleanup temp
+        }
+        setLocalData(newData);
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        await updateCompanyData(localData);
+        setHasChanges(false);
+    };
+
+    const handleCancel = () => {
+        setLocalData(companyData || {});
+        setHasChanges(false);
+    };
+
+    return (
+        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px] relative">
+            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Dados da Empresa</h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Informações cadastrais para relatórios e documentos.</p>
+            </div>
+            <div className="p-6 space-y-6 pb-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="col-span-2 md:col-span-1">
+                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Nome da Empresa</label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Building2 size={16} className="text-zinc-400" />
+                            </div>
+                            <input type="text" value={localData.name || ''} onChange={(e) => handleChange('name', e.target.value)} className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500" placeholder="Razão Social ou Nome Fantasia" />
+                        </div>
+                    </div>
+                    <div className="col-span-2 md:col-span-1">
+                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">CNPJ / CPF</label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <FileText size={16} className="text-zinc-400" />
+                            </div>
+                            <input type="text" value={localData.document || ''} onChange={(e) => handleChange('document', e.target.value)} className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500" placeholder="00.000.000/0000-00" />
+                        </div>
+                    </div>
+                    <div className="col-span-2 md:col-span-1">
+                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Email</label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Mail size={16} className="text-zinc-400" />
+                            </div>
+                            <input type="email" value={localData.email || ''} onChange={(e) => handleChange('email', e.target.value)} className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500" placeholder="contato@empresa.com" />
+                        </div>
+                    </div>
+                    <div className="col-span-2 md:col-span-1">
+                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Telefone / WhatsApp</label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Phone size={16} className="text-zinc-400" />
+                            </div>
+                            <input type="text" value={localData.phone || ''} onChange={(e) => handleChange('phone', e.target.value)} className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500" placeholder="(00) 00000-0000" />
+                        </div>
+                    </div>
+                    <div className="col-span-2">
+                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Endereço</label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <MapPin size={16} className="text-zinc-400" />
+                            </div>
+                            <input type="text" value={localData.address?.street || ''} onChange={(e) => handleChange('street', e.target.value)} className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500" placeholder="Endereço completo" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {hasChanges && (
+                <div className="absolute bottom-6 right-6 flex items-center gap-4 bg-white dark:bg-zinc-900 p-2 rounded-lg shadow-lg border border-zinc-100 dark:border-zinc-800 animate-in fade-in slide-in-from-bottom-4">
+                    <span className="text-xs text-zinc-500 pl-2">Alterações não salvas</span>
+                    <button onClick={handleCancel} className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg font-medium">Cancelar</button>
+                    <button onClick={handleSave} className="px-4 py-2 text-sm bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-yellow-500/20"><Save size={16} /> Salvar Alterações</button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const CompanyFinancialSettings = ({ companySettings, updateCompanySettings }: { companySettings: any, updateCompanySettings: (d: any) => Promise<void> }) => {
+    const [capital, setCapital] = useState(companySettings?.capitalGiroNecessario || 0);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        setCapital(companySettings?.capitalGiroNecessario || 0);
+        setHasChanges(false);
+    }, [companySettings]);
+
+    const handleChange = (val: number) => {
+        setCapital(val);
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        await updateCompanySettings({ ...companySettings, capitalGiroNecessario: capital });
+        setHasChanges(false);
+    };
+
+    const handleCancel = () => {
+        setCapital(companySettings?.capitalGiroNecessario || 0);
+        setHasChanges(false);
+    };
+
+    return (
+        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px] relative">
+            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Parâmetros Financeiros</h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Definições para análise e gestão do caixa.</p>
+            </div>
+            <div className="p-6 space-y-6">
+                <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div className="flex items-start gap-4">
+                        <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
+                            <Building2 size={24} />
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">Capital de Giro Mínimo</h4>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 mb-3">Defina o valor ideal de reserva financeira para sua empresa.</p>
+                            <div className="flex items-center gap-2 max-w-xs">
+                                <span className="text-zinc-500 font-bold">R$</span>
+                                <input type="number" value={capital} onChange={(e) => handleChange(parseFloat(e.target.value))} className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 font-mono font-bold outline-none focus:ring-2 focus:ring-indigo-500" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {hasChanges && (
+                <div className="absolute bottom-6 right-6 flex items-center gap-4 bg-white dark:bg-zinc-900 p-2 rounded-lg shadow-lg border border-zinc-100 dark:border-zinc-800 animate-in fade-in slide-in-from-bottom-4">
+                    <span className="text-xs text-zinc-500 pl-2">Alterações não salvas</span>
+                    <button onClick={handleCancel} className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg font-medium">Cancelar</button>
+                    <button onClick={handleSave} className="px-4 py-2 text-sm bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-yellow-500/20"><Save size={16} /> Salvar Alterações</button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const NotificationSettingsTab = ({ notificationSettings, updateNotificationSettings, transactions }: { notificationSettings: NotificationSettings, updateNotificationSettings: (s: NotificationSettings) => Promise<void>, transactions: Transaction[] }) => {
+    const [localSettings, setLocalSettings] = useState(notificationSettings);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        setLocalSettings(notificationSettings);
+        setHasChanges(false);
+    }, [notificationSettings]);
+
+    const handleScan = (key: keyof NotificationSettings, val: any) => {
+        setLocalSettings(prev => {
+            const next = { ...prev, [key]: val };
+            setHasChanges(true); // Simplified change detection (always true on edit)
+            return next;
+        });
+    };
+
+    const handleSave = async () => {
+        await updateNotificationSettings(localSettings);
+        setHasChanges(false);
+    };
+
+    const handleCancel = () => {
+        setLocalSettings(notificationSettings);
+        setHasChanges(false);
+    };
+
+    // Recalculate preview based on LOCAL settings
+    const preview = useMemo(() => {
+        const today = new Date().toISOString().split('T')[0];
+        let filtered = transactions;
+
+        if (localSettings.customRangeActive && localSettings.customRangeStart && localSettings.customRangeEnd) {
+            filtered = transactions.filter(t => t.dueDate >= localSettings.customRangeStart && t.dueDate <= localSettings.customRangeEnd);
+        }
+
+        const overdue = localSettings.showOverdue
+            ? filtered.filter(t => t.type === 'expense' && t.status !== 'reconciled' && (t.status === 'overdue' || t.dueDate < today)).length
+            : 0;
+
+        const dueToday = localSettings.showDueToday
+            ? filtered.filter(t => t.type === 'expense' && t.status !== 'reconciled' && t.dueDate === today).length
+            : 0;
+
+        const upcoming = localSettings.showUpcoming
+            ? filtered.filter(t => {
+                if (t.type !== 'expense' || t.status === 'reconciled') return false;
+                const future = new Date();
+                future.setDate(future.getDate() + localSettings.daysInAdvance);
+                const futureStr = future.toISOString().split('T')[0];
+                return t.dueDate > today && t.dueDate <= futureStr;
+            }).length
+            : 0;
+
+        return { overdue, dueToday, upcoming, total: overdue + dueToday + upcoming };
+    }, [transactions, localSettings]);
+
+    return (
+        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px] relative">
+            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                <div>
+                    <h3 className="text-lg font-bold text-zinc-900 dark:text-white">borConfiguração de Alertas</h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">Defina como e quando você deseja ser notificado.</p>
+                </div>
+                <div className="flex items-center space-x-2 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-full text-xs font-bold text-zinc-600 dark:text-zinc-300">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span>Sistema Ativo</span>
+                </div>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 pb-24">
+                <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider mb-2">Tipos de Notificação</h4>
+                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <div className="flex items-start space-x-3">
+                            <div className="bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg text-rose-600 dark:text-rose-400"><AlertCircle size={20} /></div>
+                            <div><h4 className="font-bold text-zinc-900 dark:text-white text-sm">Contas Vencidas</h4><p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Alerta imediato para contas em atraso.</p></div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" checked={localSettings.showOverdue} onChange={() => handleScan('showOverdue', !localSettings.showOverdue)} />
+                            <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
+                        </label>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <div className="flex items-start space-x-3">
+                            <div className="bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded-lg text-yellow-600 dark:text-yellow-400"><Bell size={20} /></div>
+                            <div><h4 className="font-bold text-zinc-900 dark:text-white text-sm">Vencimento Hoje</h4><p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Lembrete no dia exato do vencimento.</p></div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" checked={localSettings.showDueToday} onChange={() => handleScan('showDueToday', !localSettings.showDueToday)} />
+                            <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
+                        </label>
+                    </div>
+                    <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-start space-x-3">
+                                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600 dark:text-blue-400"><Info size={20} /></div>
+                                <div><h4 className="font-bold text-zinc-900 dark:text-white text-sm">Avisar com Antecedência</h4><p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Pré-aviso de contas futuras.</p></div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" className="sr-only peer" checked={localSettings.showUpcoming} onChange={() => handleScan('showUpcoming', !localSettings.showUpcoming)} />
+                                <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
+                            </label>
+                        </div>
+                        {localSettings.showUpcoming && (
+                            <div className="pl-12 flex items-center gap-3">
+                                <input type="number" min="1" max="30" value={localSettings.daysInAdvance} onChange={(e) => handleScan('daysInAdvance', parseInt(e.target.value) || 1)} className="w-16 p-2 text-center bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm font-bold outline-none focus:ring-2 focus:ring-yellow-500" />
+                                <span className="text-sm text-zinc-600 dark:text-zinc-300">dias antes.</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="space-y-6">
+                    <div className="p-4 bg-white dark:bg-zinc-900 rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300"><Calendar size={18} /><h4 className="font-bold text-sm">Filtro de Período</h4></div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" className="sr-only peer" checked={localSettings.customRangeActive} onChange={() => handleScan('customRangeActive', !localSettings.customRangeActive)} />
+                                <div className="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
+                            </label>
+                        </div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">Se ativo, o sistema só emitirá alertas para contas com vencimento dentro deste intervalo.</p>
+                        <div className={`grid grid-cols-2 gap-3 transition-opacity ${localSettings.customRangeActive ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+                            <div><label className="text-[10px] uppercase font-bold text-zinc-400">Início</label><input type="date" value={localSettings.customRangeStart} onChange={(e) => handleScan('customRangeStart', e.target.value)} className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-sm text-zinc-900 dark:text-white outline-none focus:border-yellow-500" /></div>
+                            <div><label className="text-[10px] uppercase font-bold text-zinc-400">Fim</label><input type="date" value={localSettings.customRangeEnd} onChange={(e) => handleScan('customRangeEnd', e.target.value)} className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-sm text-zinc-900 dark:text-white outline-none focus:border-yellow-500" /></div>
+                        </div>
+                    </div>
+                    <div className="p-5 bg-zinc-900 dark:bg-zinc-950 rounded-xl text-white shadow-lg relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-3 opacity-10"><Bell size={64} /></div>
+                        <h4 className="font-bold text-sm text-zinc-400 uppercase tracking-wider mb-3">Diagnóstico em Tempo Real (Prévia)</h4>
+                        <div className="space-y-3 relative z-10">
+                            <div className="flex justify-between items-center border-b border-zinc-800 pb-2"><span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-rose-500"></div> Vencidas</span><span className="font-mono font-bold">{preview.overdue}</span></div>
+                            <div className="flex justify-between items-center border-b border-zinc-800 pb-2"><span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-yellow-500"></div> Hoje</span><span className="font-mono font-bold">{preview.dueToday}</span></div>
+                            <div className="flex justify-between items-center"><span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Próximas</span><span className="font-mono font-bold">{preview.upcoming}</span></div>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-zinc-800 text-center"><p className="text-xs text-zinc-500">Total de alertas ativos na tela: <span className="text-white font-bold">{preview.total}</span></p></div>
+                    </div>
+                </div>
+            </div>
+            {hasChanges && (
+                <div className="absolute bottom-6 right-6 flex items-center gap-4 bg-white dark:bg-zinc-900 p-2 rounded-lg shadow-lg border border-zinc-100 dark:border-zinc-800 animate-in fade-in slide-in-from-bottom-4 z-50">
+                    <span className="text-xs text-zinc-500 pl-2">Alterações não salvas</span>
+                    <button onClick={handleCancel} className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg font-medium">Cancelar</button>
+                    <button onClick={handleSave} className="px-4 py-2 text-sm bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-yellow-500/20"><Save size={16} /> Salvar Alterações</button>
+                </div>
+            )}
+        </div>
+    );
+};
+
 interface SettingsProps { }
 
 export const Settings: React.FC<SettingsProps> = () => {
@@ -201,51 +505,6 @@ export const Settings: React.FC<SettingsProps> = () => {
     const [isCCModalOpen, setIsCCModalOpen] = useState(false);
     const [editingCC, setEditingCC] = useState<CostCenter | null>(null);
     const [ccFormData, setCCFormData] = useState({ name: '', code: '' });
-
-    // Notification Local State Logic
-    const handleToggleNotification = async (key: keyof NotificationSettings) => {
-        await updateNotificationSettings({
-            ...notificationSettings,
-            [key]: !notificationSettings[key as keyof NotificationSettings]
-        });
-    };
-
-    const handleUpdateNotification = async (key: keyof NotificationSettings, value: any) => {
-        await updateNotificationSettings({
-            ...notificationSettings,
-            [key]: value
-        });
-    };
-
-    // Preview logic for Notifications
-    const notificationPreview = useMemo(() => {
-        const today = new Date().toISOString().split('T')[0];
-        let filtered = transactions;
-
-        if (notificationSettings.customRangeActive && notificationSettings.customRangeStart && notificationSettings.customRangeEnd) {
-            filtered = transactions.filter(t => t.dueDate >= notificationSettings.customRangeStart && t.dueDate <= notificationSettings.customRangeEnd);
-        }
-
-        const overdue = notificationSettings.showOverdue
-            ? filtered.filter(t => t.type === 'expense' && t.status !== 'reconciled' && (t.status === 'overdue' || t.dueDate < today)).length
-            : 0;
-
-        const dueToday = notificationSettings.showDueToday
-            ? filtered.filter(t => t.type === 'expense' && t.status !== 'reconciled' && t.dueDate === today).length
-            : 0;
-
-        const upcoming = notificationSettings.showUpcoming
-            ? filtered.filter(t => {
-                if (t.type !== 'expense' || t.status === 'reconciled') return false;
-                const future = new Date();
-                future.setDate(future.getDate() + notificationSettings.daysInAdvance);
-                const futureStr = future.toISOString().split('T')[0];
-                return t.dueDate > today && t.dueDate <= futureStr;
-            }).length
-            : 0;
-
-        return { overdue, dueToday, upcoming, total: overdue + dueToday + upcoming };
-    }, [transactions, notificationSettings]);
 
     // ... (Existing Category, Bank, CC Handlers remain unchanged) ...
     const toggleGroup = (id: string) => {
@@ -449,139 +708,11 @@ export const Settings: React.FC<SettingsProps> = () => {
                 {/* Content Area */}
                 <div className="flex-1">
                     {activeTab === 'general' && (
-                        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px]">
-                            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
-                                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Dados da Empresa</h3>
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400">Informações cadastrais para relatórios e documentos.</p>
-                            </div>
-                            <div className="p-6 space-y-6">
-                                {/* Company Data Form */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="col-span-2 md:col-span-1">
-                                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Nome da Empresa</label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <Building2 size={16} className="text-zinc-400" />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={companyData?.name || ''}
-                                                onChange={(e) => updateCompanyData({ name: e.target.value })}
-                                                className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500"
-                                                placeholder="Razão Social ou Nome Fantasia"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="col-span-2 md:col-span-1">
-                                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">CNPJ / CPF</label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <FileText size={16} className="text-zinc-400" />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={companyData?.document || ''}
-                                                onChange={(e) => updateCompanyData({ document: e.target.value })}
-                                                className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500"
-                                                placeholder="00.000.000/0000-00"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="col-span-2 md:col-span-1">
-                                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Email</label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <Mail size={16} className="text-zinc-400" />
-                                            </div>
-                                            <input
-                                                type="email"
-                                                value={companyData?.email || ''}
-                                                onChange={(e) => updateCompanyData({ email: e.target.value })}
-                                                className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500"
-                                                placeholder="contato@empresa.com"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="col-span-2 md:col-span-1">
-                                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Telefone / WhatsApp</label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <Phone size={16} className="text-zinc-400" />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={companyData?.phone || ''}
-                                                onChange={(e) => updateCompanyData({ phone: e.target.value })}
-                                                className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500"
-                                                placeholder="(00) 00000-0000"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="col-span-2">
-                                        <label className="block text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Endereço</label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <MapPin size={16} className="text-zinc-400" />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={companyData.address?.street ? `${companyData.address.street}, ${companyData.address.number}` : ''}
-                                                onChange={(e) => {
-                                                    // Simple parse or just free text? 
-                                                    // For MVP simplicity, let's treat update as just setting street for now or expanding fields.
-                                                    // But UI shows "Endereço". Let's assume user types full string for now or make it a free text field 'addressString' 
-                                                    // OR expand to detailed fields. Since interface expects struct, let's just update 'street' as 'full address' fallback 
-                                                    // effectively unless we add more fields.
-                                                    // Correct approach: Add more fields for Zip, City, etc.
-                                                    // For now, let's simulate updating "street" with the value.
-                                                    const cur = companyData?.address || { street: '', number: '', neighborhood: '', city: '', state: '', zipCode: '' };
-                                                    updateCompanyData({ address: { ...cur, street: e.target.value } });
-                                                }}
-                                                className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-yellow-500"
-                                                placeholder="Endereço completo"
-                                            />
-                                            <p className="text-[10px] text-zinc-400 mt-1">Para atualizar detalhes (CEP, Cidade, etc), utilize os campos específicos [Em Breve].</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <CompanyGeneralSettings companyData={companyData} updateCompanyData={updateCompanyData} />
                     )}
 
                     {activeTab === 'financial' && (
-                        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px]">
-                            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
-                                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Parâmetros Financeiros</h3>
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400">Definições para análise e gestão do caixa.</p>
-                            </div>
-                            <div className="p-6 space-y-6">
-                                {/* Capital de Giro */}
-                                <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                    <div className="flex items-start gap-4">
-                                        <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
-                                            <Building2 size={24} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <h4 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider">Capital de Giro Mínimo</h4>
-                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 mb-3">
-                                                Defina o valor ideal de reserva financeira para sua empresa. Este valor será usado como meta nos indicadores de saúde do caixa.
-                                            </p>
-                                            <div className="flex items-center gap-2 max-w-xs">
-                                                <span className="text-zinc-500 font-bold">R$</span>
-                                                <input
-                                                    type="number"
-                                                    value={companySettings?.capitalGiroNecessario || 0}
-                                                    onChange={(e) => updateCompanySettings({ ...(companySettings || {}), capitalGiroNecessario: parseFloat(e.target.value) || 0 })}
-                                                    className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-100 font-mono font-bold outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <CompanyFinancialSettings companySettings={companySettings} updateCompanySettings={updateCompanySettings} />
                     )}
 
                     {activeTab === 'chartOfAccounts' && (
@@ -697,172 +828,12 @@ export const Settings: React.FC<SettingsProps> = () => {
                     )}
 
                     {activeTab === 'notifications' && (
-                        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px]">
-                            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-                                <div>
-                                    <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Configuração de Alertas</h3>
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">Defina como e quando você deseja ser notificado.</p>
-                                </div>
-                                <div className="flex items-center space-x-2 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-full text-xs font-bold text-zinc-600 dark:text-zinc-300">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                    <span>Sistema Ativo</span>
-                                </div>
-                            </div>
-
-                            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Column 1: Toggles */}
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider mb-2">Tipos de Notificação</h4>
-
-                                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <div className="flex items-start space-x-3">
-                                            <div className="bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg text-rose-600 dark:text-rose-400">
-                                                <AlertCircle size={20} />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-zinc-900 dark:text-white text-sm">Contas Vencidas</h4>
-                                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Alerta imediato para contas em atraso.</p>
-                                            </div>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only peer"
-                                                checked={notificationSettings.showOverdue}
-                                                onChange={() => handleToggleNotification('showOverdue')}
-                                            />
-                                            <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                        </label>
-                                    </div>
-
-                                    <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <div className="flex items-start space-x-3">
-                                            <div className="bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded-lg text-yellow-600 dark:text-yellow-400">
-                                                <Bell size={20} />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-zinc-900 dark:text-white text-sm">Vencimento Hoje</h4>
-                                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Lembrete no dia exato do vencimento.</p>
-                                            </div>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="sr-only peer"
-                                                checked={notificationSettings.showDueToday}
-                                                onChange={() => handleToggleNotification('showDueToday')}
-                                            />
-                                            <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                        </label>
-                                    </div>
-
-                                    <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-start space-x-3">
-                                                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600 dark:text-blue-400">
-                                                    <Info size={20} />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-zinc-900 dark:text-white text-sm">Avisar com Antecedência</h4>
-                                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Pré-aviso de contas futuras.</p>
-                                                </div>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={notificationSettings.showUpcoming}
-                                                    onChange={() => handleToggleNotification('showUpcoming')}
-                                                />
-                                                <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                            </label>
-                                        </div>
-                                        {notificationSettings.showUpcoming && (
-                                            <div className="pl-12 flex items-center gap-3">
-                                                <input
-                                                    type="number" min="1" max="30"
-                                                    value={notificationSettings.daysInAdvance}
-                                                    onChange={(e) => handleUpdateNotification('daysInAdvance', parseInt(e.target.value) || 1)}
-                                                    className="w-16 p-2 text-center bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm font-bold outline-none focus:ring-2 focus:ring-yellow-500"
-                                                />
-                                                <span className="text-sm text-zinc-600 dark:text-zinc-300">dias antes.</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Column 2: Date Filters & Real-time Preview */}
-                                <div className="space-y-6">
-                                    <div className="p-4 bg-white dark:bg-zinc-900 rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                                                <Calendar size={18} />
-                                                <h4 className="font-bold text-sm">Filtro de Período</h4>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={notificationSettings.customRangeActive}
-                                                    onChange={() => handleToggleNotification('customRangeActive')}
-                                                />
-                                                <div className="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-zinc-600 peer-checked:bg-yellow-500"></div>
-                                            </label>
-                                        </div>
-                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-                                            Se ativo, o sistema só emitirá alertas para contas com vencimento dentro deste intervalo.
-                                        </p>
-                                        <div className={`grid grid-cols-2 gap-3 transition-opacity ${notificationSettings.customRangeActive ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                                            <div>
-                                                <label className="text-[10px] uppercase font-bold text-zinc-400">Início</label>
-                                                <input
-                                                    type="date"
-                                                    value={notificationSettings.customRangeStart}
-                                                    onChange={(e) => handleUpdateNotification('customRangeStart', e.target.value)}
-                                                    className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-sm text-zinc-900 dark:text-white outline-none focus:border-yellow-500"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] uppercase font-bold text-zinc-400">Fim</label>
-                                                <input
-                                                    type="date"
-                                                    value={notificationSettings.customRangeEnd}
-                                                    onChange={(e) => handleUpdateNotification('customRangeEnd', e.target.value)}
-                                                    className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-sm text-zinc-900 dark:text-white outline-none focus:border-yellow-500"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Real-time Alert Preview */}
-                                    <div className="p-5 bg-zinc-900 dark:bg-zinc-950 rounded-xl text-white shadow-lg relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 p-3 opacity-10">
-                                            <Bell size={64} />
-                                        </div>
-                                        <h4 className="font-bold text-sm text-zinc-400 uppercase tracking-wider mb-3">Diagnóstico em Tempo Real</h4>
-                                        <div className="space-y-3 relative z-10">
-                                            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                                                <span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-rose-500"></div> Vencidas</span>
-                                                <span className="font-mono font-bold">{notificationPreview.overdue}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                                                <span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-yellow-500"></div> Hoje</span>
-                                                <span className="font-mono font-bold">{notificationPreview.dueToday}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Próximas</span>
-                                                <span className="font-mono font-bold">{notificationPreview.upcoming}</span>
-                                            </div>
-                                        </div>
-                                        <div className="mt-4 pt-3 border-t border-zinc-800 text-center">
-                                            <p className="text-xs text-zinc-500">Total de alertas ativos na tela: <span className="text-white font-bold">{notificationPreview.total}</span></p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <NotificationSettingsTab
+                            notificationSettings={notificationSettings}
+                            updateNotificationSettings={updateNotificationSettings}
+                            transactions={transactions}
+                        />
                     )}
-
                 </div>
             </div>
 
