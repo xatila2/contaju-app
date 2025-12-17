@@ -110,11 +110,37 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({ transact
         return alertsList;
     }, [transactions, settings]);
 
+    // Load snoozed alerts from localStorage on mount
+    useEffect(() => {
+        try {
+            const snoozed = JSON.parse(localStorage.getItem('finflux_snoozed_alerts') || '{}');
+            const now = Date.now();
+            // Filter IDs that are still within the "snooze" period (e.g., 24 hours)
+            const validDismissed = Object.keys(snoozed).filter(id => {
+                const timestamp = snoozed[id];
+                const snoozeDuration = 1000 * 60 * 60 * 24; // 24 hours
+                return (now - timestamp) < snoozeDuration;
+            });
+            setDismissedIds(validDismissed);
+        } catch (e) {
+            console.error("Error loading snoozed alerts", e);
+        }
+    }, []);
+
     const activeAlerts = alerts.filter(a => !dismissedIds.includes(a.id));
 
     const handleDismiss = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         setDismissedIds(prev => [...prev, id]);
+
+        // Save to localStorage with timestamp
+        try {
+            const snoozed = JSON.parse(localStorage.getItem('finflux_snoozed_alerts') || '{}');
+            snoozed[id] = Date.now();
+            localStorage.setItem('finflux_snoozed_alerts', JSON.stringify(snoozed));
+        } catch (e) {
+            console.error("Error saving snoozed alert", e);
+        }
     };
 
     const handleAlertClick = (type: AlertItem['type']) => {

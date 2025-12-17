@@ -332,7 +332,7 @@ export const Layout: React.FC<LayoutProps> = ({
       </aside>
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-16 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-8 z-10 shadow-sm transition-colors duration-300">
+        <header className="h-16 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-8 z-40 shadow-sm transition-colors duration-300">
           <div className="flex items-center flex-1">
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden mr-4 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">
               {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
