@@ -70,7 +70,7 @@ interface TransactionContextType {
     updateCategoryGroup: (id: string, updates: Partial<CategoryGroup>) => void;
     deleteCategoryGroup: (id: string) => void;
     updateCategoryGroupItems: (groupId: string, categoryIds: string[]) => void;
-    setCategoryGroupGoal: (goal: Omit<CategoryGroupGoal, 'id'>) => void;
+    setCategoryGroupGoal: (goal: Omit<CategoryGroupGoal, 'id'>) => Promise<void>;
 
     // Supabase CRUD Actions (Exposed for Settings.tsx)
     addCategory: (category: Omit<Category, 'id'>) => Promise<void>;
@@ -216,7 +216,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 { data: budgets },
                 { data: purchasesData },
                 settingsResult,
-                { data: rulesData }
+                { data: rulesData },
+                { data: goalsData }
             ] = await Promise.all([
                 supabase.from('categories').select('*').eq('company_id', cid),
                 supabase.from('bank_accounts').select('*').eq('company_id', cid),
@@ -227,7 +228,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 supabase.from('budgets').select('*').eq('company_id', cid),
                 supabase.from('purchases').select('*').eq('company_id', cid),
                 supabase.from('companies').select('name, document, settings, capital_giro_necessario, notification_settings').eq('id', cid).single(),
-                supabase.from('category_rules').select('*').eq('company_id', cid)
+                supabase.from('category_rules').select('*').eq('company_id', cid),
+                supabase.from('category_goals').select('*').eq('company_id', cid)
             ]);
 
             console.log("📊 [Debug] Fetch Results:", {
@@ -412,6 +414,28 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                     categoryId: r.category_id,
                     priority: r.priority,
                     active: r.active
+                })));
+            }
+
+            // Set Category Goals
+            if (goalsData) {
+                setCategoryGroupGoals(goalsData.map((g: any) => ({
+                    id: g.id,
+                    groupId: g.category_id, // Mapping category_id to groupId as per previous type usage usage
+                    year: g.year,
+                    month: g.month,
+                    goalAmount: Number(g.goal_amount)
+                })));
+            }
+
+            // Set Category Goals
+            if (goalsData) {
+                setCategoryGroupGoals(goalsData.map((g: any) => ({
+                    id: g.id,
+                    groupId: g.category_id, // Mapping category_id to groupId as per previous type usage usage
+                    year: g.year,
+                    month: g.month,
+                    goalAmount: Number(g.goal_amount)
                 })));
             }
 
@@ -751,7 +775,34 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     const updateCategoryGroup = (id: string, updates: Partial<CategoryGroup>) => { };
     const deleteCategoryGroup = (id: string) => { };
     const updateCategoryGroupItems = (groupId: string, categoryIds: string[]) => { };
-    const setCategoryGroupGoal = (goal: Omit<CategoryGroupGoal, 'id'>) => { };
+    const setCategoryGroupGoal = async (goal: Omit<CategoryGroupGoal, 'id'>) => {
+        if (!companyId) return;
+
+        // Optimistic Update
+        setCategoryGroupGoals(prev => {
+            const idx = prev.findIndex(g => g.groupId === goal.groupId && g.year === goal.year && g.month === goal.month);
+            if (idx >= 0) {
+                const newArr = [...prev];
+                newArr[idx] = { ...newArr[idx], goalAmount: goal.goalAmount };
+                return newArr;
+            } else {
+                return [...prev, { ...goal, id: 'temp-' + Date.now(), goalAmount: goal.goalAmount }];
+            }
+        });
+
+        const { error } = await supabase.from('category_goals').upsert({
+            company_id: companyId,
+            category_id: goal.groupId, // groupId holds the category ID
+            year: goal.year,
+            month: goal.month,
+            goal_amount: goal.goalAmount
+        }, { onConflict: 'company_id, category_id, year, month' });
+
+        if (error) {
+            console.error("Error saving category goal:", error);
+            await loadData(); // Revert on error
+        }
+    };
 
     // --- NEW PERSISTENCE ACTIONS ---
     const addCategory = async (category: Omit<Category, 'id'>) => {

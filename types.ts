@@ -203,6 +203,10 @@ export interface PlanningData {
   revenueGoal: number;
   expenseGoal: number;
   profitGoal: number; // Usually calculated, but can be manual target
+  profitSharingParams?: {
+    totalPool: number;
+    distributedAmount: number;
+  };
 }
 
 export interface NotificationSettings {
