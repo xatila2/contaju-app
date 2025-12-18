@@ -25,7 +25,8 @@ import {
   Landmark,
   CreditCard,
   LogOut,
-  Users
+  Users,
+  Shield // Added Shield
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DateRangePicker } from './DateRangePicker';
@@ -75,7 +76,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const { transactions, notificationSettings, companyName } = useTransactions();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -303,6 +304,13 @@ export const Layout: React.FC<LayoutProps> = ({
             <SidebarItem collapsed={isCollapsed} icon={CreditCard} label="Cartões" active={isActive('/credit-cards')} onClick={() => handleNavigation('/credit-cards')} />
             <SidebarItem collapsed={isCollapsed} icon={Scale} label="Conciliação" active={isActive('/bank-reconciliation')} onClick={() => handleNavigation('/bank-reconciliation')} />
             <SidebarItem collapsed={isCollapsed} icon={Settings} label="Configurações" active={isActive('/settings')} onClick={() => handleNavigation('/settings')} />
+
+            {isAdmin && (
+              <>
+                {!isCollapsed && <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mt-8 mb-4 px-2 animate-in fade-in">Admin</div>}
+                <SidebarItem collapsed={isCollapsed} icon={Shield} label="Usuários" active={isActive('/admin')} onClick={() => handleNavigation('/admin')} />
+              </>
+            )}
           </nav>
 
           <div className="p-4 border-t border-zinc-800/50">

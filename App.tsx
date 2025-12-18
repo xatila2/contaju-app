@@ -16,7 +16,9 @@ import { CreditCards } from './pages/CreditCards';
 import { ClientsPage } from './pages/ClientsPage';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
-import { AuthProvider } from './context/AuthContext';
+import { PendingApproval } from './pages/PendingApproval';
+import { AdminPage } from './pages/AdminPage';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { PrivateRoute } from './components/PrivateRoute';
 import { NotificationSystem } from './components/NotificationSystem';
 import { PageView, Transaction } from './types';
@@ -118,6 +120,8 @@ const MainLayout = () => {
           <Route path="/purchases" element={<PrivateRoute><Purchases /></PrivateRoute>} />
           <Route path="/credit-cards" element={<PrivateRoute><CreditCards /></PrivateRoute>} />
           <Route path="/clients" element={<PrivateRoute><ClientsPage /></PrivateRoute>} />
+          <Route path="/clients" element={<PrivateRoute><ClientsPage /></PrivateRoute>} />
+          <Route path="/admin" element={<PrivateRoute><AdminPage /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
@@ -160,6 +164,17 @@ const MainLayout = () => {
 };
 
 const AppContent = () => {
+  const { user, profile, loading } = useAuth();
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-zinc-500">Carregando...</div>;
+  }
+
+  // Approval Check: If user is logged in, has profile loaded, but NOT approved
+  if (user && profile && !profile.is_approved) {
+    return <PendingApproval />;
+  }
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />

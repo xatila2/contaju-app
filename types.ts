@@ -68,6 +68,15 @@ export interface User {
   avatar?: string;
 }
 
+export interface Profile {
+  id: string;
+  email: string;
+  full_name?: string;
+  is_approved: boolean;
+  role: 'admin' | 'user';
+  created_at: string;
+}
+
 
 export interface InstallmentConfig {
   current: number;
