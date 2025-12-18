@@ -1,504 +1,449 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Upload, Check, X, FileText, ArrowRight, AlertTriangle, Link as LinkIcon, Eye, History, Building2, Plus, Calendar, Search, Filter } from 'lucide-react';
-import { BankStatementLine, Transaction, ReconciliationMatch, BankAccount, Category } from '../types';
+import { Upload, FileText, Building2, Search, Filter, RefreshCw, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
+import { BankStatementItem, Transaction, BankAccount, Category } from '../types';
 import { ReconciliationModal } from '../components/ReconciliationModal';
-import { useSearchParams } from 'react-router-dom';
+import { BankStatementCard } from '../components/reconciliation/BankStatementCard';
+import { SmartMatchList } from '../components/reconciliation/SmartMatchList';
 import { useTransactions } from '../context/TransactionContext';
+import { useSearchParams } from 'react-router-dom';
+import { supabase } from '../src/lib/supabase';
 
 export const BankReconciliation: React.FC = () => {
     const [searchParams] = useSearchParams();
     const {
         transactions,
-        bankStatementLines: statementLines,
-        categories,
-        handleImportStatement: onImportStatement,
-        handleReconcile: onReconcile,
         bankAccounts,
-        handleSaveTransaction
+        categories,
+        fetchBankStatementItems,
+        handleReconciliationV2,
+        handleSaveTransaction,
+        companyId
     } = useTransactions();
 
     // -- STATE --
     const [selectedBankId, setSelectedBankId] = useState<string>(searchParams.get('bankId') || '');
-    const [viewHistory, setViewHistory] = useState(false);
     const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+    const [statementItems, setStatementItems] = useState<BankStatementItem[]>([]);
+    const [loadingStatement, setLoadingStatement] = useState(false);
 
-    // Selection for Matching
-    const [selectedStmtLineId, setSelectedStmtLineId] = useState<string | null>(null);
-    const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
+    // Selection
+    const [selectedStmtItemId, setSelectedStmtItemId] = useState<string | null>(null);
+    const [selectedInternalTxIds, setSelectedInternalTxIds] = useState<string[]>([]);
+
+    // Internal Transactions Filter
+    const [searchText, setSearchText] = useState('');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'reconciled'>('pending');
 
     // Modals
-    const [showMatchModal, setShowMatchModal] = useState(false); // To confirm match
-    const [showCreateModal, setShowCreateModal] = useState(false); // To create new
+    const [showReconcileModal, setShowReconcileModal] = useState(false);
 
-    // New Transaction Form State
-    const [newTxData, setNewTxData] = useState({
-        description: '',
-        amount: 0,
-        date: '',
-        categoryId: '',
-        type: 'expense' as 'income' | 'expense'
-    });
+    // -- EFFECTS --
+    useEffect(() => {
+        if (selectedBankId && currentMonth) {
+            loadStatement();
+        }
+    }, [selectedBankId, currentMonth]);
 
-    // -- HELPERS --
-    const getMonthDateRange = (monthKey: string) => {
-        const [y, m] = monthKey.split('-');
-        const start = new Date(parseInt(y), parseInt(m) - 1, 1);
-        const end = new Date(parseInt(y), parseInt(m), 0);
-        return { start, end };
+    const loadStatement = async () => {
+        setLoadingStatement(true);
+        const items = await fetchBankStatementItems(selectedBankId, currentMonth);
+        setStatementItems(items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        setLoadingStatement(false);
+        // Clear selection on reload
+        setSelectedStmtItemId(null);
+        setSelectedInternalTxIds([]);
     };
 
-    // Filter Data by Bank & Month
-    const { filteredStatement, filteredTransactions } = useMemo(() => {
-        if (!selectedBankId) return { filteredStatement: [], filteredTransactions: [] };
+    // -- DATA PREP --
+    // Selected Statement Item
+    const activeStmtItem = useMemo(() =>
+        statementItems.find(i => i.id === selectedStmtItemId),
+        [selectedStmtItemId, statementItems]);
 
-        const { start, end } = getMonthDateRange(currentMonth);
-        const startStr = start.toISOString().split('T')[0];
-        const endStr = end.toISOString().split('T')[0];
+    // Internal Transactions for the period/bank
+    const internalTransactions = useMemo(() => {
+        const [y, m] = currentMonth.split('-');
+        const start = `${currentMonth}-01`;
+        const end = `${currentMonth}-31`; // Loose
 
-        const stmts = statementLines.filter(l => {
-            // Mock bank ID check if statement lines had bankId (assuming they adhere to selected context or imported context)
-            // Ideally statement lines should belong to a bank. For now, we assume imported lines act on current bank context or are filtered elsewhere.
-            // If statementLines is global, we need to know which bank they belong to.
-            // Assuming current implementation treats imported lines as "pending" for the active view.
-            return l.date >= startStr && l.date <= endStr && (viewHistory ? l.isReconciled : !l.isReconciled);
-        }).sort((a, b) => b.date.localeCompare(a.date));
+        const filtered = transactions.filter(t => {
+            if (t.bankAccountId !== selectedBankId) return false;
 
-        const txs = transactions.filter(t => {
-            return t.bankAccountId === selectedBankId &&
-                t.date >= startStr && t.date <= endStr &&
-                (viewHistory ? t.isReconciled : !t.isReconciled);
-        }).sort((a, b) => b.date.localeCompare(a.date));
+            // Date Logic:
+            // 1. If Reconciled: Must be in view period (Month)
+            // 2. If Pending: Show everything up to the end of this month (Past pending items should appear)
+            if (t.isReconciled) {
+                if (t.date < start || t.date > end) return false;
+            } else {
+                if (t.date > end) return false; // Don't show future stuff
+                // Show all past pending
+            }
 
-        return { filteredStatement: stmts, filteredTransactions: txs };
-    }, [selectedBankId, currentMonth, viewHistory, statementLines, transactions]);
+            // Text Filter
+            if (searchText && !t.description.toLowerCase().includes(searchText.toLowerCase())) return false;
 
-    // Balances
-    const balances = useMemo(() => {
-        const stmtBalance = filteredStatement.reduce((acc, l) => acc + l.amount, 0);
-        const sysBalance = filteredTransactions.reduce((acc, t) => acc + (t.type === 'expense' ? -t.amount : t.amount), 0);
-        const diff = stmtBalance - sysBalance;
-        return { stmtBalance, sysBalance, diff };
-    }, [filteredStatement, filteredTransactions]);
+            // Status Filter
+            if (filterStatus === 'pending' && t.isReconciled) return false;
+            if (filterStatus === 'reconciled' && !t.isReconciled) return false;
 
-    // -- MATCHING LOGIC --
-    const findCandidates = (stmtLine: BankStatementLine) => {
-        // Simple logic: Find internal txs with same amount (approx) and close date
-        return filteredTransactions.filter(tx => {
-            const txVal = tx.type === 'expense' ? -tx.amount : tx.amount;
-            const valDiff = Math.abs(stmtLine.amount - txVal);
-            // Allow 5% diff or exact match logic
-            // Converting dates to check proximity could be done here too
-            return valDiff < 0.05; // Exact match for now
-        });
-    };
+            return true;
+        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        // Debug Logging
+        console.log(`[BankReconciliation] Loading. Total Txs: ${transactions.length}, SelectedBank: ${selectedBankId}, Filtered: ${filtered.length}`);
+        return filtered;
+    }, [transactions, selectedBankId, currentMonth, searchText, filterStatus]);
 
     // -- HANDLERS --
-    const handleRecClick = (line: BankStatementLine) => {
-        setSelectedStmtLineId(line.id);
-        const candidates = findCandidates(line);
-        if (candidates.length > 0) {
-            // Auto-select first candidate or show list? 
-            // For now, let's select the first one to simulate "Found match"
-            setSelectedTxId(candidates[0].id);
-            setShowMatchModal(true); // Open the verification modal directly
+    const handleSelectStmtItem = (id: string) => {
+        if (selectedStmtItemId === id) {
+            setSelectedStmtItemId(null);
+            setSelectedInternalTxIds([]);
         } else {
-            // No match -> Offer to create
-            setNewTxData({
-                description: line.description,
-                amount: Math.abs(line.amount),
-                date: line.date,
-                categoryId: '',
-                type: line.amount < 0 ? 'expense' : 'income'
-            });
-            setShowCreateModal(true);
+            setSelectedStmtItemId(id);
+            setSelectedInternalTxIds([]); // Reset internal selection when switching statement item
+            // Optional: Auto-select best match?
+            // Let's keep it manual for "Premium Control" feel, or call a heuristic here.
         }
     };
 
-    const handleCreateTransaction = () => {
-        if (!newTxData.categoryId || !newTxData.description) {
-            alert("Preencha categoria e descrição.");
-            return;
-        }
-
-        const newTx: Transaction = {
-            id: `tx-new-${Date.now()}`,
-            description: newTxData.description,
-            amount: newTxData.amount,
-            type: newTxData.type,
-            date: newTxData.date,
-            categoryId: newTxData.categoryId,
-            bankAccountId: selectedBankId,
-            status: 'reconciled',
-            isReconciled: true,
-            paymentDate: newTxData.date,
-            dueDate: newTxData.date,
-            launchDate: new Date().toISOString(),
-            category: categories.find(c => c.id === newTxData.categoryId)?.name || 'Outros'
-        };
-
-        // Create transaction in context
-        handleSaveTransaction(newTx);
-
-        // Then reconcile match
-        if (selectedStmtLineId) {
-            const match: ReconciliationMatch = {
-                id: `match-new-${Date.now()}`,
-                statementLineId: selectedStmtLineId,
-                transactionIds: [newTx.id],
-                matchedAt: new Date().toISOString(),
-                type: 'full',
-                adjustments: { interest: 0, penalty: 0, discount: 0 }
-            };
-            // Use existing onReconcile but strictly with the new transaction?
-            // Actually createTransaction handles the transaction add. onReconcile updates the statement line.
-            // We need to verify how generic onReconcile is. It takes "newTransaction" arg optionally.
-            // For safety, let's just pass it to onReconcile if it supports creation, or call both.
-            // The existing ReconcileModal logic calls onReconcile with list of matches.
-            onReconcile([match], { interest: 0, penalty: 0, discount: 0 });
-        }
-
-        setShowCreateModal(false);
-        setSelectedStmtLineId(null);
-    };
-
-    const handleConfirmMatch = (adjustments: any, newTx?: Transaction) => {
-        if (selectedStmtLineId && selectedTxId) {
-            const match: ReconciliationMatch = {
-                id: `match-${Date.now()}`,
-                statementLineId: selectedStmtLineId,
-                transactionIds: [selectedTxId],
-                matchedAt: new Date().toISOString(),
-                type: 'full',
-                adjustments
-            };
-            onReconcile([match], adjustments, newTx);
-            setShowMatchModal(false);
-            setSelectedStmtLineId(null);
-            setSelectedTxId(null);
+    const handleToggleInternalTx = (id: string) => {
+        if (selectedInternalTxIds.includes(id)) {
+            setSelectedInternalTxIds(prev => prev.filter(x => x !== id));
+        } else {
+            setSelectedInternalTxIds(prev => [...prev, id]);
         }
     };
 
-    // File Upload Wrapper
+    const handleConfirmReconciliation = async (adjustments: any) => {
+        if (!activeStmtItem) return;
+        const selectedTxs = transactions.filter(t => selectedInternalTxIds.includes(t.id));
+
+        await handleReconciliationV2([activeStmtItem], selectedTxs, adjustments);
+
+        setShowReconcileModal(false);
+        loadStatement(); // Refresh
+    };
+
+    // Import Logic (Simplified Direct Insert for V2)
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+
+        if (!selectedBankId) {
+            alert("Selecione uma conta bancária antes de importar o extrato.");
+            return;
+        }
+        if (!companyId) {
+            alert("Erro: Identificador da empresa não encontrado. Tente recarregar a página.");
+            return;
+        }
         if (!file) return;
+
+        console.log("Iniciando leitura do arquivo OFX...", file.name);
+
         const reader = new FileReader();
-        reader.onload = (ev) => {
+        reader.onload = async (ev) => {
             const text = ev.target?.result as string;
-            // Basic OFX Parser Mock
-            const lines: BankStatementLine[] = [];
-            const transactionRegex = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
+            console.log("Arquivo lido, tamanho:", text.length);
+
+            // Basic OFX parsing
+            const lines: any[] = [];
+            // Regex to find STMTTRN blocks (case insensitive)
+            const transactionRegex = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi;
             const matches = text.match(transactionRegex);
+
+            console.log("Blocos de transação encontrados:", matches?.length || 0);
+
             if (matches) {
-                matches.forEach((block, idx) => {
-                    const val = block.match(/<TRNAMT>(.*?)(\r|\n)/)?.[1] || '0';
-                    const dateRaw = block.match(/<DTPOSTED>(.*?)(\r|\n)/)?.[1] || '';
-                    const memo = block.match(/<MEMO>(.*?)(\r|\n)/)?.[1] || 'Sem descrição';
-                    const d = dateRaw.length >= 8 ? `${dateRaw.substring(0, 4)}-${dateRaw.substring(4, 6)}-${dateRaw.substring(6, 8)}` : new Date().toISOString().split('T')[0];
-                    lines.push({ id: `stmt-${Date.now()}-${idx}`, date: d, description: memo, amount: parseFloat(val), isReconciled: false });
+                matches.forEach((block) => {
+                    // Extract fields looking for content between tag and closest newline OR next tag start
+                    const getValue = (tag: string) => {
+                        const regex = new RegExp(`<${tag}>([^<\\r\\n]+)`, 'i');
+                        return block.match(regex)?.[1]?.trim() || '';
+                    };
+
+                    const val = getValue('TRNAMT') || '0';
+                    const dateRaw = getValue('DTPOSTED');
+                    const memo = getValue('MEMO') || 'Sem descrição';
+                    const fitid = getValue('FITID') || `fit-${Date.now()}-${Math.random()}`;
+
+                    let d = new Date().toISOString().split('T')[0];
+                    if (dateRaw && dateRaw.length >= 8) {
+                        const y = dateRaw.substring(0, 4);
+                        const m = dateRaw.substring(4, 6);
+                        const day = dateRaw.substring(6, 8);
+                        d = `${y}-${m}-${day}`;
+                    }
+
+                    console.log(`Parsed: Date=${d}, Amount=${val}, Memo=${memo}`);
+
+                    lines.push({
+                        company_id: companyId,
+                        bank_account_id: selectedBankId,
+                        date: d,
+                        description: memo,
+                        amount: parseFloat(val.replace(',', '.')),
+                        fitid: fitid,
+                        memo: memo,
+                        is_reconciled: false
+                    });
                 });
+
+                if (lines.length > 0) {
+                    console.log("Inserindo items no banco:", lines.length);
+                    const { error } = await supabase.from('bank_statement_items').insert(lines).select();
+
+                    if (error) {
+                        console.error("Erro Supabase:", error);
+                        alert("Erro ao importar: " + error.message);
+                    } else {
+                        console.log("Sucesso! Inseridos:", lines.length);
+                        alert(`Importação concluída! ${lines.length} registros processados.`);
+                        loadStatement();
+                    }
+                } else {
+                    alert("Nenhuma transação válida encontrada no arquivo OFX.");
+                }
             } else {
-                // Mock Import
-                const d = new Date().toISOString().split('T')[0];
-                lines.push({ id: `mock-${Date.now()}-1`, date: d, description: 'COMPRA TESTE', amount: -150.00, isReconciled: false });
-                lines.push({ id: `mock-${Date.now()}-2`, date: d, description: 'CLIENTE XYZ', amount: 500.00, isReconciled: false });
+                console.warn("Regex não encontrou matches. Conteúdo do arquivo:", text.substring(0, 500) + "...");
+                alert("Formato OFX não reconhecido ou arquivo vazio/inválido. Verifique o console para mais detalhes.");
             }
-            onImportStatement(lines);
         };
         reader.readAsText(file);
     };
 
-    const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+    // Derived State for UI
+    const selectedInternalTxs = transactions.filter(t => selectedInternalTxIds.includes(t.id));
+    const totalSelectedInternal = selectedInternalTxs.reduce((sum, t) => sum + (t.type === 'expense' ? -t.amount : t.amount), 0);
+    const difference = activeStmtItem ? activeStmtItem.amount - totalSelectedInternal : 0;
+    const isReadyToReconcile = activeStmtItem && selectedInternalTxs.length > 0;
 
     return (
-        <div className="h-[calc(100vh-100px)] flex flex-col space-y-4 p-6 overflow-hidden max-w-[1600px] mx-auto w-full">
+        <div className="h-[calc(100vh-80px)] flex flex-col p-4 md:p-6 overflow-hidden max-w-[1920px] mx-auto w-full gap-4">
 
-            {/* 1. HEADER & BANK SELECTOR */}
-            <div className="flex flex-col gap-4">
-                <div className="flex justify-between items-end">
-                    <div>
-                        <h2 className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                            <Building2 className="text-indigo-600" /> Conciliação Bancária
-                        </h2>
-                        <p className="text-zinc-500 dark:text-zinc-400 text-sm">Selecione a conta e vincule os lançamentos.</p>
-                    </div>
-
-                    <div className="flex gap-4 items-end">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-bold uppercase text-zinc-500">Mês de Referência</label>
-                            <input
-                                type="month"
-                                value={currentMonth}
-                                onChange={e => setCurrentMonth(e.target.value)}
-                                className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                        </div>
-
-                        <div className="flex flex-col gap-1 min-w-[250px]">
-                            <label className="text-xs font-bold uppercase text-zinc-500">Conta Bancária</label>
-                            <select
-                                value={selectedBankId}
-                                onChange={(e) => setSelectedBankId(e.target.value)}
-                                className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                            >
-                                <option value="">Selecione...</option>
-                                {bankAccounts.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
+            {/* HEADER */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 shrink-0">
+                <div>
+                    <h2 className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                        <RefreshCw className="text-indigo-600" /> Conciliação Bancária V2
+                    </h2>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-sm">Novo fluxo inteligente de conciliação.</p>
                 </div>
 
-                {/* HEADER SUMMARY */}
-                {selectedBankId && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 animate-in fade-in slide-in-from-top-2">
-                        <div className="border-r border-zinc-100 dark:border-zinc-800 pr-4">
-                            <span className="text-xs font-bold uppercase text-zinc-400">Extrato (Período)</span>
-                            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-1">{formatMoney(balances.stmtBalance)}</div>
-                        </div>
-                        <div className="border-r border-zinc-100 dark:border-zinc-800 pr-4">
-                            <span className="text-xs font-bold uppercase text-zinc-400">Sistema (Período)</span>
-                            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-1">{formatMoney(balances.sysBalance)}</div>
-                        </div>
-                        <div className="pr-4 flex flex-col justify-center">
-                            <span className="text-xs font-bold uppercase text-zinc-400">Diferença</span>
-                            <div className={`text-xl font-bold mt-1 ${Math.abs(balances.diff) < 0.01 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                {formatMoney(balances.diff)}
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-end gap-2">
-                            <label className="cursor-pointer px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-bold text-sm rounded-lg hover:bg-indigo-100 transition flex items-center gap-2">
-                                <Upload size={16} /> Importar Extrato
-                                <input type="file" accept=".ofx,.txt" className="hidden" onChange={handleFileUpload} />
-                            </label>
-                            <button
-                                onClick={() => setViewHistory(!viewHistory)}
-                                className={`px-3 py-2 rounded-lg border text-sm font-medium transition ${viewHistory ? 'bg-yellow-100 border-yellow-200 text-yellow-800' : 'bg-transparent border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}
-                            >
-                                {viewHistory ? 'Ver Pendentes' : 'Histórico'}
-                            </button>
-                        </div>
+                <div className="flex gap-4 items-end bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-bold uppercase text-zinc-500">Mês</label>
+                        <input
+                            type="month"
+                            value={currentMonth}
+                            onChange={e => setCurrentMonth(e.target.value)}
+                            className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-2 py-1.5 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
                     </div>
-                )}
+                    <div className="flex flex-col gap-1 min-w-[200px]">
+                        <label className="text-[10px] font-bold uppercase text-zinc-500">Conta</label>
+                        <select
+                            value={selectedBankId}
+                            onChange={(e) => setSelectedBankId(e.target.value)}
+                            className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-2 py-1.5 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                            <option value="">Selecione...</option>
+                            {bankAccounts.map(b => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <label className="cursor-pointer px-4 py-1.5 bg-indigo-600 text-white font-bold text-sm rounded hover:bg-indigo-700 transition flex items-center gap-2 h-[34px]">
+                        <Upload size={14} /> Importar OFX
+                        <input type="file" accept=".ofx,.txt" className="hidden" onChange={handleFileUpload} />
+                    </label>
+                </div>
             </div>
 
-            {/* MAIN CONTENT Area */}
+            {/* MAIN CONTENT - 3 COLUMNS */}
             {!selectedBankId ? (
                 <div className="flex-1 flex flex-col items-center justify-center bg-zinc-50/50 dark:bg-zinc-900/50 rounded-2xl border-2 border-dashed border-zinc-300 dark:border-zinc-800 p-12 text-center text-zinc-400">
                     <Building2 size={48} className="mb-4 opacity-50" />
-                    <h3 className="text-lg font-bold text-zinc-600 dark:text-zinc-300">Nenhuma conta selecionada</h3>
-                    <p className="max-w-md mx-auto mt-2">Escolha uma conta bancária acima para visualizar o extrato e realizar a conciliação dos lançamentos.</p>
+                    <h3 className="text-lg font-bold text-zinc-600 dark:text-zinc-300">Selecione uma conta</h3>
                 </div>
             ) : (
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden min-h-0">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 min-h-0">
 
-                    {/* COL 1: EXTRATO */}
-                    <div className="flex flex-col bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-                        <div className="p-3 bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-                            <h3 className="font-bold text-zinc-700 dark:text-zinc-200 flex items-center gap-2">
+                    {/* COLUMN 1: BANK STATEMENT (4 cols) */}
+                    <div className="md:col-span-4 flex flex-col bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+                        <div className="p-3 bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center shrink-0">
+                            <h3 className="font-bold text-zinc-700 dark:text-zinc-200 flex items-center gap-2 text-sm">
                                 <FileText size={16} /> Extrato Bancário
                             </h3>
-                            <span className="text-xs font-bold px-2 py-1 bg-zinc-200 dark:bg-zinc-800 rounded-full text-zinc-600 dark:text-zinc-400">
-                                {filteredStatement.length} registros
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded-full text-zinc-600 dark:text-zinc-400">
+                                {statementItems.filter(i => !i.isReconciled).length} pendentes
                             </span>
                         </div>
-                        <div className="flex-1 overflow-y-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-xs font-bold text-zinc-400 uppercase sticky top-0">
-                                    <tr>
-                                        <th className="px-4 py-2 font-medium">Data</th>
-                                        <th className="px-4 py-2 font-medium">Descrição</th>
-                                        <th className="px-4 py-2 font-medium text-right">Valor</th>
-                                        <th className="px-4 py-2 font-medium text-center">Ação</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                    {filteredStatement.map(line => (
-                                        <tr key={line.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group">
-                                            <td className="px-4 py-3 text-zinc-500 text-xs whitespace-nowrap">
-                                                {new Date(line.date).toLocaleDateString('pt-BR')}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <p className="font-medium text-zinc-900 dark:text-white truncate max-w-[180px]" title={line.description}>{line.description}</p>
-                                            </td>
-                                            <td className={`px-4 py-3 text-right font-bold whitespace-nowrap ${line.amount < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                                {formatMoney(line.amount)}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                {!line.isReconciled ? (
-                                                    <button
-                                                        onClick={() => handleRecClick(line)}
-                                                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded shadow-sm opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100"
-                                                    >
-                                                        Conciliar
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-emerald-500"><Check size={16} /></span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredStatement.length === 0 && (
-                                        <tr><td colSpan={4} className="p-8 text-center text-zinc-400 text-xs">Nenhum lançamento no extrato.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
+                        <div className="flex-1 overflow-y-auto p-3 space-y-2 relative">
+                            {loadingStatement && <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10"><RefreshCw className="animate-spin text-indigo-600" /></div>}
+
+                            {statementItems.length === 0 ? (
+                                <div className="text-center text-zinc-400 text-sm mt-10">Nenhum lançamento no extrato.</div>
+                            ) : (
+                                statementItems.map(item => (
+                                    (!item.isReconciled || filterStatus === 'all') && ( // Simple client-side filter for now
+                                        <BankStatementCard
+                                            key={item.id}
+                                            item={item}
+                                            isSelected={selectedStmtItemId === item.id}
+                                            onSelect={() => handleSelectStmtItem(item.id)}
+                                        />
+                                    )
+                                ))
+                            )}
                         </div>
                     </div>
 
-                    {/* COL 2: SISTEMA */}
-                    <div className="flex flex-col bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-                        <div className="p-3 bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-                            <h3 className="font-bold text-zinc-700 dark:text-zinc-200 flex items-center gap-2">
-                                <Building2 size={16} /> Lançamentos Internos
-                            </h3>
-                            <span className="text-xs font-bold px-2 py-1 bg-zinc-200 dark:bg-zinc-800 rounded-full text-zinc-600 dark:text-zinc-400">
-                                {filteredTransactions.length} registros
-                            </span>
-                        </div>
-                        <div className="flex-1 overflow-y-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-xs font-bold text-zinc-400 uppercase sticky top-0">
-                                    <tr>
-                                        <th className="px-4 py-2 font-medium">Data</th>
-                                        <th className="px-4 py-2 font-medium">Descrição</th>
-                                        <th className="px-4 py-2 font-medium text-right">Valor</th>
-                                        <th className="px-4 py-2 font-medium text-center">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                    {filteredTransactions.map(tx => (
-                                        <tr key={tx.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                            <td className="px-4 py-3 text-zinc-500 text-xs whitespace-nowrap">
-                                                {new Date(tx.date).toLocaleDateString('pt-BR')}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <p className="font-medium text-zinc-900 dark:text-white truncate max-w-[180px]" title={tx.description}>{tx.description}</p>
-                                                <p className="text-[10px] text-zinc-400 truncate">{categories.find(c => c.id === tx.categoryId)?.name}</p>
-                                            </td>
-                                            <td className={`px-4 py-3 text-right font-bold whitespace-nowrap ${tx.type === 'expense' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                                {formatMoney(tx.type === 'expense' ? -tx.amount : tx.amount)}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                {tx.isReconciled ? (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                                        OK
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                                                        Pendente
-                                                    </span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredTransactions.length === 0 && (
-                                        <tr><td colSpan={4} className="p-8 text-center text-zinc-400 text-xs">Nenhum lançamento interno no período.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* CREATE MODAL */}
-            {showCreateModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl max-w-md w-full border border-zinc-200 dark:border-zinc-800">
-                        <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-950 rounded-t-xl">
-                            <h3 className="font-bold text-zinc-900 dark:text-white">Criar Lançamento</h3>
-                            <button onClick={() => setShowCreateModal(false)}><X size={18} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <p className="text-sm text-zinc-500">Nenhuma correspondência encontrada. Crie um novo lançamento para conciliar.</p>
-
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="text-xs font-bold text-zinc-500 uppercase">Descrição</label>
-                                    <input
-                                        className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border rounded text-sm"
-                                        value={newTxData.description}
-                                        onChange={e => setNewTxData({ ...newTxData, description: e.target.value })}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-zinc-500 uppercase">Valor</label>
-                                        <input
-                                            type="number"
-                                            className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border rounded text-sm font-bold"
-                                            value={newTxData.amount}
-                                            disabled // Fixed from statement
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-zinc-500 uppercase">Data</label>
-                                        <input
-                                            type="date"
-                                            className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border rounded text-sm"
-                                            value={newTxData.date}
-                                            onChange={e => setNewTxData({ ...newTxData, date: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-zinc-500 uppercase">Categoria</label>
-                                    <select
-                                        className="w-full mt-1 p-2 bg-zinc-50 dark:bg-zinc-800 border rounded text-sm"
-                                        value={newTxData.categoryId}
-                                        onChange={e => setNewTxData({ ...newTxData, categoryId: e.target.value })}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
+                    {/* COLUMN 2: MATCH SUGGESTIONS / SEARCH (5 cols) */}
+                    <div className="md:col-span-4 lg:col-span-5 flex flex-col bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+                        <div className="p-3 bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-100 dark:border-zinc-800 gap-2 flex flex-col shrink-0">
+                            <div className="flex justify-between items-center">
+                                <h3 className="font-bold text-zinc-700 dark:text-zinc-200 flex items-center gap-2 text-sm">
+                                    <Building2 size={16} /> Correspondência
+                                </h3>
+                                <div className="flex bg-zinc-200 dark:bg-zinc-800 rounded-lg p-0.5">
+                                    <button onClick={() => setFilterStatus('pending')} className={`px-2 py-0.5 text-[10px] font-bold rounded ${filterStatus === 'pending' ? 'bg-white shadow text-zinc-900' : 'text-zinc-500'}`}>Pendentes</button>
+                                    <button onClick={() => setFilterStatus('all')} className={`px-2 py-0.5 text-[10px] font-bold rounded ${filterStatus === 'all' ? 'bg-white shadow text-zinc-900' : 'text-zinc-500'}`}>Todos</button>
                                 </div>
                             </div>
 
+                            <div className="relative">
+                                <Search size={14} className="absolute left-2.5 top-2 text-zinc-400" />
+                                <input
+                                    className="w-full bg-white dark:bg-black border border-zinc-200 dark:border-zinc-700 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    placeholder="Buscar por descrição ou valor..."
+                                    value={searchText}
+                                    onChange={e => setSearchText(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-3 bg-zinc-50/30 dark:bg-zinc-900/30">
+                            {activeStmtItem ? (
+                                <SmartMatchList
+                                    statementItem={activeStmtItem}
+                                    candidates={internalTransactions.filter(t =>
+                                        activeStmtItem.amount < 0
+                                            ? t.type === 'expense'
+                                            : t.type === 'income'
+                                    )}
+                                    selectedIds={selectedInternalTxIds}
+                                    onToggleSelect={handleToggleInternalTx}
+                                    onCreate={() => setShowReconcileModal(true)}
+                                />
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center text-zinc-400 text-center p-6">
+                                    <ArrowRight className="mb-2 opacity-30" size={32} />
+                                    <p className="text-sm">Selecione um item do extrato à esquerda para ver sugestões.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* COLUMN 3: RECONCILIATION DETAILS (3 cols) */}
+                    <div className="md:col-span-4 lg:col-span-3 flex flex-col bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-inner overflow-hidden">
+                        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+                            <h3 className="font-bold text-zinc-900 dark:text-white text-sm uppercase tracking-wide">Resumo da Conciliação</h3>
+                        </div>
+
+                        <div className="flex-1 p-4 space-y-6 overflow-y-auto">
+                            {activeStmtItem ? (
+                                <>
+                                    {/* Extrato Card */}
+                                    <div className="bg-white dark:bg-zinc-900 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                                        <p className="text-[10px] font-bold uppercase text-zinc-400 mb-1">Item do Extrato</p>
+                                        <p className="font-bold text-zinc-900 dark:text-white text-sm line-clamp-2">{activeStmtItem.description}</p>
+                                        <p className="text-xs text-zinc-500 mt-1">{new Date(activeStmtItem.date).toLocaleDateString('pt-BR')}</p>
+                                        <p className={`text-xl font-bold mt-2 ${activeStmtItem.amount < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(activeStmtItem.amount)}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex justify-center text-zinc-300">
+                                        {/* Icon Divider */}
+                                        <Filter size={16} />
+                                    </div>
+
+                                    {/* Selected Txs */}
+                                    <div className="bg-white dark:bg-zinc-900 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm relative">
+                                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg ring-2 ring-white dark:ring-zinc-900">
+                                            {selectedInternalTxs.length}
+                                        </div>
+                                        <p className="text-[10px] font-bold uppercase text-zinc-400 mb-1">Selecionados</p>
+                                        {selectedInternalTxs.length === 0 ? (
+                                            <p className="text-sm text-zinc-400 italic">Nenhum selecionado</p>
+                                        ) : (
+                                            <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 custom-scrollbar">
+                                                {selectedInternalTxs.map(t => (
+                                                    <div key={t.id} className="flex justify-between text-xs py-1 border-b border-zinc-50 last:border-0 border-dashed">
+                                                        <span className="truncate flex-1 pr-2 text-zinc-600">{t.description}</span>
+                                                        <span className="font-bold text-zinc-900">
+                                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.type === 'expense' ? -t.amount : t.amount)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {selectedInternalTxs.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                                                <span className="text-xs font-bold text-zinc-900">Total</span>
+                                                <span className={`text-sm font-bold ${totalSelectedInternal < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSelectedInternal)}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Difference */}
+                                    <div className={`p-4 rounded-lg border flex justify-between items-center ${Math.abs(difference) < 0.01 ? 'bg-emerald-100 border-emerald-200 text-emerald-800' : 'bg-rose-100 border-rose-200 text-rose-800'}`}>
+                                        <span className="text-xs font-bold uppercase">Diferença</span>
+                                        <span className="font-bold text-lg">
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(difference)}
+                                        </span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="text-center text-zinc-400 mt-20">
+                                    <p className="text-sm">Aguardando seleção...</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
                             <button
-                                onClick={handleCreateTransaction}
-                                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg mt-4 shadow-lg shadow-emerald-500/20"
+                                onClick={() => setShowReconcileModal(true)}
+                                disabled={!isReadyToReconcile}
+                                className={`w-full py-3 rounded-lg font-bold shadow-lg transition-all flex items-center justify-center gap-2
+                                    ${isReadyToReconcile
+                                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20'
+                                        : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'
+                                    }
+                                `}
                             >
-                                Criar e Conciliar
+                                <CheckCircle2 size={18} />
+                                {activeStmtItem && activeStmtItem.isReconciled ? 'Revisar Conciliação' : 'Conciliar'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* RECONCILIATION MODAL (CONFIRMATION) */}
+            {/* CONFIRMATION MODAL */}
             <ReconciliationModal
-                isOpen={showMatchModal}
-                onClose={() => setShowMatchModal(false)}
-                onConfirm={handleConfirmMatch}
-                statementLine={filteredStatement.find(l => l.id === selectedStmtLineId) || null}
-                selectedTransactions={selectedTxId ? filteredTransactions.filter(t => t.id === selectedTxId) : []}
+                isOpen={showReconcileModal}
+                onClose={() => setShowReconcileModal(false)}
+                onConfirm={handleConfirmReconciliation}
+                statementLine={activeStmtItem || null}
+                selectedTransactions={selectedInternalTxs}
                 categories={categories}
                 selectedBankId={selectedBankId}
             />
-
-            {/* FOOTER SUMMARY */}
-            <div className="bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 p-4 -mx-6 -mb-4 flex flex-wrap justify-between items-center shadow-[0_-5px_15px_-5px_rgba(0,0,0,0.05)] sticky bottom-0 z-20">
-                <div className="flex gap-6 text-sm">
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-zinc-300"></div>
-                        <span className="text-zinc-500">Total: <strong className="text-zinc-900 dark:text-white">{filteredStatement.length}</strong></span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                        <span className="text-zinc-500">Conciliados: <strong className="text-zinc-900 dark:text-white">{filteredStatement.filter(l => l.isReconciled).length}</strong></span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                        <span className="text-zinc-500">Pendentes: <strong className="text-zinc-900 dark:text-white">{filteredStatement.filter(l => !l.isReconciled).length}</strong></span>
-                    </div>
-                </div>
-
-                <button className="px-6 py-2 bg-zinc-900 dark:bg-white text-white dark:text-black font-bold rounded-lg hover:opacity-90 transition">
-                    Concluir Período
-                </button>
-            </div>
         </div>
     );
 };

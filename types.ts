@@ -188,29 +188,37 @@ export interface Scenario {
   };
 }
 
-export interface BankStatementLine {
+// --- RECONCILIATION TYPES ---
+export interface BankStatementItem {
   id: string;
+  bankAccountId: string;
   date: string;
   description: string;
   amount: number;
-  balance?: number;
-  matchedTransactionId?: string;
-  isReconciled?: boolean;
-  bankAccountId?: string;
+  fitid?: string;
+  memo?: string;
+  isReconciled: boolean;
+  reconciliationId?: string;
 }
 
-export interface ReconciliationMatch {
+export interface ReconciliationGroup {
   id: string;
-  statementLineId: string;
-  transactionIds: string[];
-  matchedAt: string;
-  type: "full" | "partial" | "difference";
-  adjustments?: {
-    interest: number;
-    penalty: number;
-    discount: number;
-  };
+  companyId: string;
+  bankAccountId: string;
+  date: string;
+  status: 'completed' | 'pending';
+  totalAmount: number;
+  links?: ReconciliationLink[];
 }
+
+export interface ReconciliationLink {
+  id: string;
+  reconciliationId: string;
+  bankStatementItemId?: string;
+  transactionId: string;
+  amountAllocated?: number;
+}
+
 
 export interface PlanningData {
   month: string; // YYYY-MM

@@ -546,16 +546,56 @@ export const Transactions: React.FC<TransactionsProps> = ({
 
 
 
+    // --- MOBILE CARD COMPONENT ---
+    const TransactionMobileCard: React.FC<{ tx: Transaction }> = ({ tx }) => (
+        <tr className="md:hidden border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+            <td colSpan={8} className="p-4" onClick={() => onEdit(tx)}>
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-start gap-3">
+                        {/* Status Indicator Dot */}
+                        <div className={`mt-1.5 w-2 h-2 rounded-full ${tx.status === 'reconciled' ? 'bg-emerald-500' : tx.status === 'overdue' ? 'bg-rose-500' : 'bg-yellow-500'}`} />
+                        <div>
+                            <span className="block font-bold text-zinc-900 dark:text-white line-clamp-1">{tx.description}</span>
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400">{tx.client || 'Sem cliente'} • {getCategoryName(tx.categoryId)}</span>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <span className={`block font-bold ${tx.type === 'income' ? 'text-emerald-600' : tx.type === 'transfer' ? 'text-indigo-600' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                            {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(tx.amount))}
+                        </span>
+                        <span className="text-xs text-zinc-400">{new Date(tx.dueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
+                    </div>
+                </div>
+                <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-50 dark:border-zinc-800/50">
+                    <span className="text-xs text-zinc-400 flex items-center gap-1">
+                        {tx.origin === 'credit_card' ? <CreditCard size={12} /> : <Building2 size={12} />}
+                        {getSourceName(tx)}
+                    </span>
+                    <div className="flex gap-2">
+                        {tx.status !== 'reconciled' && (
+                            <button onClick={(e) => openPaymentModal(e, tx)} className="p-1.5 bg-emerald-50 text-emerald-600 rounded-full">
+                                <Check size={14} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </td>
+        </tr>
+    );
+
     // --- UPDATED ROW COMPONENT ---
     const TransactionRowWithSelection: React.FC<{ tx: Transaction; idx: number }> = ({ tx, idx }) => (
         <tr
             id={`row-${tx.id}`}
-            className={`group transition-all duration-300 cursor-pointer border-l-4 ${idx % 2 === 0 ? 'bg-white dark:bg-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800'
-                } ${selectedIds.has(tx.id) ? 'bg-yellow-50 dark:bg-yellow-900/10 border-l-yellow-600' : (highlightTransactionId === tx.id ? 'bg-yellow-100 dark:bg-yellow-900/30 border-l-yellow-500 animate-pulse' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/70 hover:shadow-md border-l-transparent hover:border-l-yellow-500')}`}
+            className={`
+                group hidden md:table-row transition-colors duration-200 cursor-pointer
+                border-b border-zinc-100 dark:border-zinc-800/50
+                ${selectedIds.has(tx.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : (idx % 2 === 0 ? 'bg-white dark:bg-zinc-900' : 'bg-zinc-50/30 dark:bg-zinc-950')}
+                hover:bg-zinc-50 dark:hover:bg-zinc-800
+            `}
             onClick={(e) => {
-                // If clicking row (not checkbox/button), maybe select? No, standard behavior is edit. 
-                // But if user holds CMD/CTRL? 
-                // Let's stick to Select Checkbox for selection, Double Click for Edit.
+                // Stick to edit on double click or button
             }}
             onDoubleClick={() => onEdit(tx)}
         >
@@ -565,93 +605,104 @@ export const Transactions: React.FC<TransactionsProps> = ({
                     type="checkbox"
                     checked={selectedIds.has(tx.id)}
                     onChange={(e) => { e.stopPropagation(); handleSelectRow(tx.id); }}
-                    className="w-4 h-4 rounded border-zinc-300 text-yellow-600 focus:ring-yellow-500 cursor-pointer"
+                    className="w-4 h-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity checked:opacity-100"
                 />
             </td>
 
             <td className="px-6 py-4">
                 <div className="flex flex-col">
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-200">
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                             {tx.description}
                         </span>
-                        <div className="flex gap-1">
-                            {tx.notes && <FileText size={12} className="text-zinc-400" />}
-                            {tx.attachmentName && <Paperclip size={12} className="text-zinc-400" />}
+                        <div className="flex gap-1 opacity-50">
+                            {tx.notes && <FileText size={12} />}
+                            {tx.attachmentName && <Paperclip size={12} />}
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2 text-xs">
-                        <span className="text-zinc-500 dark:text-zinc-400">{tx.client || (tx.type === 'transfer' ? 'Interno' : 'Sem cliente')}</span>
-                        <span className="text-zinc-300 dark:text-zinc-600">•</span>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-200 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 border border-zinc-300 dark:border-zinc-700">
+                        <span className="text-zinc-500 font-medium">{tx.client || (tx.type === 'transfer' ? 'Interno' : 'Sem cliente')}</span>
+                        <span className="text-zinc-300">•</span>
+                        <span className="text-zinc-400">
                             {tx.type === 'transfer' ? 'Transferência' : getCategoryName(tx.categoryId)}
                         </span>
                     </div>
                 </div>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-zinc-600 dark:text-zinc-400 font-medium font-mono">
+
+            <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-zinc-500 dark:text-zinc-400 tabular-nums">
                 {new Date(tx.dueDate).toLocaleDateString('pt-BR')}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-zinc-600 dark:text-zinc-400">
-                {tx.paymentDate ? new Date(tx.paymentDate).toLocaleDateString('pt-BR') : '-'}
+
+            <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-zinc-500 dark:text-zinc-400 tabular-nums">
+                {tx.paymentDate ? <span className="text-emerald-600 font-medium">{new Date(tx.paymentDate).toLocaleDateString('pt-BR')}</span> : '-'}
             </td>
+
             <td className="px-6 py-4 whitespace-nowrap text-left text-sm text-zinc-600 dark:text-zinc-400">
                 {tx.type === 'transfer' ? (
                     <div className="flex items-center space-x-1 text-xs">
-                        <span className="font-bold">{getBankName(tx.bankAccountId)}</span>
-                        <ArrowRight size={12} className="text-zinc-400" />
-                        <span className="font-bold">{getBankName(tx.destinationBankAccountId)}</span>
+                        <span className="font-medium">{getBankName(tx.bankAccountId)?.split(' ')[0]}</span>
+                        <ArrowRight size={10} className="text-zinc-300" />
+                        <span className="font-medium">{getBankName(tx.destinationBankAccountId)?.split(' ')[0]}</span>
                     </div>
                 ) : (
                     tx.origin === 'credit_card' ? (
-                        <div className="flex items-center space-x-1">
-                            <CreditCard size={12} className="text-zinc-400" />
-                            <span>{getSourceName(tx)}</span>
+                        <div className="flex items-center gap-1.5 text-zinc-500">
+                            <CreditCard size={14} className="opacity-70" />
+                            <span className="text-xs">{getSourceName(tx)}</span>
                         </div>
                     ) : (
                         getBankName(tx.bankAccountId) ? (
-                            <div className="flex items-center space-x-1">
-                                <Building2 size={12} className="text-zinc-400" />
-                                <span>{getBankName(tx.bankAccountId)}</span>
+                            <div className="flex items-center gap-1.5 text-zinc-500">
+                                <Building2 size={14} className="opacity-70" />
+                                <span className="text-xs">{getBankName(tx.bankAccountId)}</span>
                             </div>
                         ) : <span className="text-zinc-300">-</span>
                     )
                 )}
             </td>
+
             <td className="px-6 py-4 whitespace-nowrap text-right">
-                <div className="flex flex-col items-end">
-                    <span className={`text-sm font-bold ${tx.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : tx.type === 'transfer' ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
-                        {tx.type === 'income' ? '+' : ''}{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
-                    </span>
-                </div>
+                <span className={`text-sm font-bold tracking-tight ${tx.type === 'income' ? 'text-emerald-600' :
+                    tx.type === 'transfer' ? 'text-zinc-600' :
+                        'text-rose-600'
+                    }`}>
+                    {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(tx.amount))}
+                </span>
             </td>
+
             <td className="px-6 py-4 whitespace-nowrap flex justify-center">
                 {getStatusBadge(tx.status)}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                <div className="flex items-center justify-center space-x-2 transition-all">
+
+            <td className="px-6 py-4 whitespace-nowrap text-center">
+                <div className="flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {tx.status === 'pending' || tx.status === 'overdue' || tx.status === 'scheduled' ? (
                         <button
                             onClick={(e) => openPaymentModal(e, tx)}
-                            className="group p-1 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-full transition-colors" title="Marcar como Pago"
+                            className="p-1.5 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            title="Marcar como Pago"
                         >
-                            <CheckCircle size={20} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />
+                            <CheckCircle2 size={16} />
                         </button>
                     ) : (
                         <button
                             onClick={(e) => handleUndo(e, tx)}
-                            className="p-1 text-zinc-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-full transition-colors" title="Desfazer"
+                            className="p-1.5 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Desfazer"
                         >
-                            <RotateCcw size={18} />
+                            <RotateCcw size={16} />
                         </button>
                     )}
 
                     <button
                         onClick={(e) => { e.stopPropagation(); onEdit(tx); }}
-                        className="p-1 text-zinc-400 hover:text-yellow-500 transition-colors"
+                        className="p-1.5 text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="Editar"
                     >
-                        <MoreVertical size={18} />
+                        <MoreVertical size={16} />
                     </button>
                 </div>
             </td>
@@ -705,8 +756,8 @@ export const Transactions: React.FC<TransactionsProps> = ({
     );
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-4 h-full flex flex-col">
+            <div className="flex-none flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">Transações</h2>
                     <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-1">Gerencie pagamentos, recebimentos e transferências.</p>
@@ -857,10 +908,10 @@ export const Transactions: React.FC<TransactionsProps> = ({
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden min-h-[400px]">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
-                        <thead className="bg-zinc-50 dark:bg-zinc-950">
+            <div className="flex-1 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden flex flex-col">
+                <div className="flex-1 overflow-auto">
+                    <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 relative">
+                        <thead className="bg-zinc-50 dark:bg-zinc-950 hidden md:table-header-group sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="pl-4 py-3 w-10">
                                     <input
@@ -894,7 +945,10 @@ export const Transactions: React.FC<TransactionsProps> = ({
                                         </tr>
                                         {/* Transactions for that date */}
                                         {groupedTransactions[dateKey].map((tx, idx) => (
-                                            <TransactionRowWithSelection key={tx.id} tx={tx} idx={idx} />
+                                            <React.Fragment key={tx.id}>
+                                                <TransactionRowWithSelection tx={tx} idx={idx} />
+                                                <TransactionMobileCard tx={tx} />
+                                            </React.Fragment>
                                         ))}
                                     </React.Fragment>
                                 )) : (
@@ -905,7 +959,10 @@ export const Transactions: React.FC<TransactionsProps> = ({
                             ) : (
                                 // Flat View (Sorted by other columns)
                                 filteredTransactions.length > 0 ? filteredTransactions.map((tx, idx) => (
-                                    <TransactionRowWithSelection key={tx.id} tx={tx} idx={idx} />
+                                    <React.Fragment key={tx.id}>
+                                        <TransactionRowWithSelection tx={tx} idx={idx} />
+                                        <TransactionMobileCard tx={tx} />
+                                    </React.Fragment>
                                 )) : (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-24 text-center text-zinc-500">Nenhum lançamento encontrado para o período.</td>

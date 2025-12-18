@@ -9,7 +9,7 @@ export const CreditCards = () => {
     const {
         creditCards, transactions, categories,
         handleAddCreditCard, handleAddCardExpense, handlePayInvoice, bankAccounts,
-        handleBatchDelete, handleSaveTransaction
+        handleBatchDelete, handleSaveTransaction, addCategory
     } = useTransactions();
 
     const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -270,7 +270,14 @@ export const CreditCards = () => {
                                         onClick={() => { setActiveTab('current'); setFutureOffset(1); }}
                                         className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'current' ? 'border-b-2 border-indigo-500 text-indigo-500' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
                                     >
-                                        Fatura Atual
+                                        Fatura Atual {(() => {
+                                            const today = new Date();
+                                            let m = today.getMonth();
+                                            let y = today.getFullYear();
+                                            if (selectedCard && today.getDate() >= selectedCard.closingDay) m++;
+                                            const d = new Date(y, m, 1);
+                                            return `(${d.toLocaleDateString('pt-BR', { month: 'short' })})`;
+                                        })()}
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('future')}
@@ -283,9 +290,14 @@ export const CreditCards = () => {
                                 {activeTab === 'future' && (
                                     <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 rounded-lg">
                                         <button
-                                            onClick={() => setFutureOffset(prev => Math.max(1, prev - 1))}
+                                            onClick={() => {
+                                                if (futureOffset <= 1) {
+                                                    setActiveTab('current');
+                                                } else {
+                                                    setFutureOffset(prev => prev - 1);
+                                                }
+                                            }}
                                             className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-full text-zinc-500"
-                                            disabled={futureOffset <= 1}
                                         >
                                             <ChevronLeft size={16} />
                                         </button>
@@ -422,6 +434,14 @@ export const CreditCards = () => {
                         <h3 className="text-lg font-bold mb-6 dark:text-white">Nova Despesa no Cartão</h3>
                         <CreditCardExpenseForm
                             categories={categories}
+                            onCreateCategory={async (name) => {
+                                await addCategory({
+                                    name,
+                                    type: 'expense',
+                                    code: '', // Manual/Auto
+                                    isSystemDefault: false
+                                });
+                            }}
                             onSubmit={(data) => {
                                 if (selectedCard) {
                                     handleAddCardExpense({

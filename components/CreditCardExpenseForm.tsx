@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, ChevronDown, Check, Calendar, DollarSign, CreditCard } from 'lucide-react';
+import { Search, ChevronDown, Check, Calendar, DollarSign, CreditCard, Plus } from 'lucide-react';
 import { Category } from '../types';
 import { CurrencyInput } from './CurrencyInput';
 
@@ -20,9 +20,10 @@ interface CreditCardExpenseFormProps {
         installments: number;
     }) => void;
     onCancel: () => void;
+    onCreateCategory?: (name: string) => void;
 }
 
-export const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ categories, initialData, onSubmit, onCancel }) => {
+export const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ categories, initialData, onSubmit, onCancel, onCreateCategory }) => {
     const [formData, setFormData] = useState({
         description: initialData?.description || '',
         amount: initialData?.amount || 0,
@@ -125,6 +126,87 @@ export const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ ca
                 </div>
             </div>
 
+            {/* Category Selection (Moved Up) */}
+            <div className="relative" ref={dropdownRef}>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Categoria</label>
+                <button
+                    type="button"
+                    onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+                    className="w-full p-2.5 text-left bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none flex justify-between items-center"
+                >
+                    <span className={selectedCategory ? '' : 'text-zinc-400'}>
+                        {selectedCategory ? selectedCategory.name : 'Selecione...'}
+                    </span>
+                    <ChevronDown size={16} className="text-zinc-400" />
+                </button>
+
+                {isCategoryOpen && (
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl max-h-60 flex flex-col">
+                        <div className="p-2 border-b border-zinc-100 dark:border-zinc-800">
+                            <div className="relative">
+                                <Search size={14} className="absolute left-2.5 top-2.5 text-zinc-400" />
+                                <input
+                                    autoFocus
+                                    className="w-full pl-8 pr-3 py-1.5 text-sm bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 text-zinc-900 dark:text-white placeholder-zinc-400"
+                                    placeholder="Buscar categoria..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="overflow-y-auto flex-1 p-1">
+                            {filteredCategories.length === 0 && !searchTerm ? (
+                                <div className="p-3 text-center text-xs text-zinc-500">
+                                    Nenhuma categoria encontrada.
+                                </div>
+                            ) : (
+                                filteredCategories.map(cat => (
+                                    <button
+                                        key={cat.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setFormData({ ...formData, categoryId: cat.id });
+                                            setIsCategoryOpen(false);
+                                            setSearchTerm('');
+                                        }}
+                                        className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between group transition-colors ${formData.categoryId === cat.id
+                                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
+                                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                            }`}
+                                    >
+                                        <span>{cat.name}</span>
+                                        {formData.categoryId === cat.id && <Check size={14} className="text-indigo-600 dark:text-indigo-400" />}
+                                    </button>
+                                ))
+                            )}
+
+                            {/* Create Option */}
+                            {searchTerm && !filteredCategories.find(c => c.name.toLowerCase() === searchTerm.toLowerCase()) && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (onCreateCategory) {
+                                            onCreateCategory(searchTerm);
+                                            // Optimistic logic or wait for update?
+                                            // Ideally we wait, but let's just close and hope parent handles it or user re-selects (imperfect but requested MVP)
+                                            // Actually, we can assume parent adds it. 
+                                            // We can't select it yet because we need ID.
+                                            // Just clear search and close.
+                                            setSearchTerm('');
+                                            setIsCategoryOpen(false);
+                                        }
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm rounded-md flex items-center gap-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-t border-zinc-100 dark:border-zinc-800 mt-1"
+                                >
+                                    <Plus size={14} />
+                                    <span>Cadastrar "{searchTerm}"</span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* Installments Toggle */}
             <div className="flex items-start gap-4 p-3 bg-zinc-50 dark:bg-zinc-950/50 rounded-lg border border-zinc-100 dark:border-zinc-800">
                 <div className="flex items-center h-5 mt-1">
@@ -166,78 +248,18 @@ export const CreditCardExpenseForm: React.FC<CreditCardExpenseFormProps> = ({ ca
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Date */}
-                <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Data</label>
-                    <div className="relative">
-                        <input
-                            type="date"
-                            className="w-full p-2.5 pl-10 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                            value={formData.date}
-                            onChange={e => setFormData({ ...formData, date: e.target.value })}
-                            required
-                        />
-                        <Calendar className="absolute left-3 top-2.5 text-zinc-400" size={18} />
-                    </div>
-                </div>
-
-                {/* Searchable Category Select */}
-                <div className="relative" ref={dropdownRef}>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Categoria</label>
-                    <button
-                        type="button"
-                        onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                        className="w-full p-2.5 text-left bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none flex justify-between items-center"
-                    >
-                        <span className={selectedCategory ? '' : 'text-zinc-400'}>
-                            {selectedCategory ? selectedCategory.name : 'Selecione...'}
-                        </span>
-                        <ChevronDown size={16} className="text-zinc-400" />
-                    </button>
-
-                    {isCategoryOpen && (
-                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl max-h-60 flex flex-col">
-                            <div className="p-2 border-b border-zinc-100 dark:border-zinc-800">
-                                <div className="relative">
-                                    <Search size={14} className="absolute left-2.5 top-2.5 text-zinc-400" />
-                                    <input
-                                        autoFocus
-                                        className="w-full pl-8 pr-3 py-1.5 text-sm bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 text-zinc-900 dark:text-white placeholder-zinc-400"
-                                        placeholder="Buscar categoria..."
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                            <div className="overflow-y-auto flex-1 p-1">
-                                {filteredCategories.length === 0 ? (
-                                    <div className="p-3 text-center text-xs text-zinc-500">
-                                        Nenhuma categoria encontrada.
-                                    </div>
-                                ) : (
-                                    filteredCategories.map(cat => (
-                                        <button
-                                            key={cat.id}
-                                            type="button"
-                                            onClick={() => {
-                                                setFormData({ ...formData, categoryId: cat.id });
-                                                setIsCategoryOpen(false);
-                                                setSearchTerm(''); // Reset search
-                                            }}
-                                            className={`w-full text-left px-3 py-2 text-sm rounded-md flex items-center justify-between group transition-colors ${formData.categoryId === cat.id
-                                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
-                                                : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                                                }`}
-                                        >
-                                            <span>{cat.name}</span>
-                                            {formData.categoryId === cat.id && <Check size={14} className="text-indigo-600 dark:text-indigo-400" />}
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    )}
+            {/* Date Details */}
+            <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Data</label>
+                <div className="relative">
+                    <input
+                        type="date"
+                        className="w-full p-2.5 pl-10 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm text-zinc-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={formData.date}
+                        onChange={e => setFormData({ ...formData, date: e.target.value })}
+                        required
+                    />
+                    <Calendar className="absolute left-3 top-2.5 text-zinc-400" size={18} />
                 </div>
             </div>
 

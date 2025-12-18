@@ -56,8 +56,8 @@ export const SemiDonutChart: React.FC<SemiDonutChartProps> = ({ value, target, t
                         cy="100%"
                         startAngle={180}
                         endAngle={0}
-                        innerRadius="60%"
-                        outerRadius="85%"
+                        innerRadius="75%"
+                        outerRadius="100%"
                         paddingAngle={0}
                         dataKey="value"
                         stroke="none"
@@ -85,13 +85,11 @@ export const SemiDonutChart: React.FC<SemiDonutChartProps> = ({ value, target, t
                 </PieChart>
             </ResponsiveContainer>
 
-            {/* Center Check Label */}
-            <div className="absolute bottom-1 flex flex-col items-center pointer-events-none">
-                <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Meta</span>
-                <span className="text-xs font-bold text-white mb-0.5 opacity-80">{defaultCurrency(target)}</span>
-                <div className="flex items-baseline">
-                    <span className="text-xl font-bold tracking-tighter shadow-black drop-shadow-md" style={{ color: mainColor }}>
-                        {percentage.toFixed(0)}<span className="text-xs opacity-60 ml-0.5">%</span>
+            {/* Center Percentage Only */}
+            <div className="absolute bottom-0 w-full flex justify-center pointer-events-none">
+                <div className="flex items-baseline justify-center">
+                    <span className="text-sm font-bold tracking-tighter shadow-black drop-shadow-md" style={{ color: mainColor }}>
+                        {percentage.toFixed(0)}<span className="text-[9px] opacity-60 ml-0.5">%</span>
                     </span>
                 </div>
             </div>

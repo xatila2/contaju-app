@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import {
     Transaction, Category, BankAccount, CostCenter, Purchase, PlanningData,
     NotificationSettings, BankStatementLine, ReconciliationMatch, CategoryRule, CreditCard,
-    CategoryGroup, CategoryGroupItem, CategoryGroupGoal, CompanySettings, CompanyData, Client
+    CategoryGroup, CategoryGroupItem, CategoryGroupGoal, CompanySettings, CompanyData, Client,
+    BankStatementItem, ReconciliationGroup // Added Types
 } from '../types';
 import { supabase } from '../src/lib/supabase';
 import {
@@ -93,6 +94,18 @@ interface TransactionContextType {
     updateCompanyData: (data: Partial<CompanyData>) => Promise<void>;
     restoreDefaultCategories: () => Promise<void>;
     updateBudget: (budget: PlanningData) => Promise<void>;
+
+    // New V2 API
+    isLoading: boolean;
+    fetchBankStatementItems: (bankId: string, month: string) => Promise<BankStatementItem[]>;
+    handleReconciliationV2: (
+        statementItems: BankStatementItem[],
+        transactionsToLink: Transaction[],
+        adjustments: { interest: number; penalty: number; discount: number; newTransaction?: Transaction }
+    ) => Promise<void>;
+
+    // Legacy / Shim
+    deleteTransaction: (id: string) => Promise<void>;
 }
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
@@ -497,6 +510,24 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                     transaction_date: tx.launchDate,
                     category_id: tx.categoryId,
                     credit_card_id: tx.creditCardId,
+                    invoice_id: (() => {
+                        // Recalculate Invoice ID on update
+                        const card = creditCards.find(c => c.id === tx.creditCardId);
+                        if (!card) return undefined; // Should not happen if ID valid
+
+                        const [y, m, d] = tx.launchDate.split('-').map(Number);
+                        const date = new Date(y, m - 1, d, 12, 0, 0);
+
+                        let invoiceMonth = date.getMonth();
+                        let invoiceYear = date.getFullYear();
+
+                        if (date.getDate() >= card.closingDay) {
+                            invoiceMonth++;
+                            if (invoiceMonth > 11) { invoiceMonth = 0; invoiceYear++; }
+                        }
+                        const invoiceMonthStr = `${invoiceYear}-${String(invoiceMonth + 1).padStart(2, '0')}`;
+                        return `${card.id}_${invoiceMonthStr}`;
+                    })()
                 } : {
                     type: tx.type,
                     transaction_date: tx.launchDate,
@@ -697,7 +728,11 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         const card = creditCards.find(c => c.id === cardId);
         if (!card) return;
 
-        const baseDate = new Date(expense.dueDate || expense.date);
+        // Fix Timezone Issue: Explicitly parse YYYY-MM-DD string
+        const dateStr = expense.dueDate || expense.date;
+        const [y, m, d] = dateStr.split('-').map(Number);
+        // Create date at NOON (12:00) to ensure safe timezone adjustments
+        const baseDate = new Date(y, m - 1, d, 12, 0, 0);
         const installmentAmount = installments > 1 ? (Math.abs(expense.amount) / installments) : Math.abs(expense.amount);
         const sign = expense.type === 'expense' ? -1 : 1;
         const finalAmount = installmentAmount * sign;
@@ -728,7 +763,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
             txsToInsert.push({
                 company_id: companyId,
                 credit_card_id: cardId,
-                invoice_id: null, // We need to resolve invoice ID. For now NULL.
+                invoice_id: `${cardId}_${invoiceMonthStr}`,
                 category_id: expense.categoryId,
                 description: installments > 1 ? `${expense.description} (${i + 1}/${installments})` : expense.description,
                 amount: finalAmount,
@@ -1083,6 +1118,88 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
 
 
+    // --- RECONCILIATION V2 ---
+    const fetchBankStatementItems = async (bankId: string, month: string) => {
+        if (!companyId) return [];
+        // Assuming month is YYYY-MM
+        const { data, error } = await supabase
+            .from('bank_statement_items')
+            .select('*')
+            .eq('bank_account_id', bankId)
+            .gte('date', `${month}-01`)
+            .lte('date', `${month}-31`); // Simple boundary
+
+        if (error) {
+            console.error('Error fetching statement items:', error);
+            return [];
+        }
+
+        return data.map((item: any) => ({
+            id: item.id,
+            bankAccountId: item.bank_account_id,
+            date: item.date,
+            description: item.description,
+            amount: item.amount,
+            fitid: item.fitid,
+            memo: item.memo,
+            isReconciled: item.is_reconciled,
+            reconciliationId: item.reconciliation_id
+        }));
+    };
+
+    const handleReconciliationV2 = async (
+        statementItems: BankStatementItem[],
+        transactionsToLink: Transaction[],
+        adjustments: { interest: number; penalty: number; discount: number; newTransaction?: Transaction }
+    ) => {
+        if (!companyId || statementItems.length === 0) return;
+
+        // 1. Create New Transaction if needed
+        if (adjustments.newTransaction) {
+            await handleSaveTransaction(adjustments.newTransaction);
+            // We assume handleSaveTransaction processes it. 
+            // Ideally we need the ID, but for now we trust exact matching or re-fetch.
+            transactionsToLink.push(adjustments.newTransaction);
+        }
+
+        // 2. Create Reconciliation Group
+        const totalAmount = statementItems.reduce((sum, item) => sum + item.amount, 0);
+        const { data: recGroup, error: recErr } = await supabase
+            .from('reconciliations')
+            .insert({
+                company_id: companyId,
+                bank_account_id: statementItems[0].bankAccountId,
+                total_amount: totalAmount,
+                status: 'completed'
+            })
+            .select()
+            .single();
+
+        if (recErr || !recGroup) return;
+
+        // 3. Create Links
+        const links = [];
+        for (const stmt of statementItems) {
+            for (const tx of transactionsToLink) {
+                links.push({
+                    reconciliation_id: recGroup.id,
+                    bank_statement_item_id: stmt.id,
+                    transaction_id: tx.id
+                });
+            }
+        }
+        await supabase.from('reconciliation_links').insert(links);
+
+        // 4. Update Statuses
+        const stmtIds = statementItems.map(s => s.id);
+        await supabase.from('bank_statement_items').update({ is_reconciled: true, reconciliation_id: recGroup.id }).in('id', stmtIds);
+
+        const txIds = transactionsToLink.map(t => t.id);
+        await supabase.from('transactions').update({ is_reconciled: true, status: 'reconciled' }).in('id', txIds);
+
+        await loadData();
+    };
+
     return (
         <TransactionContext.Provider value={{
             transactions,
@@ -1149,10 +1266,19 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
             updateCompanySettings,
             updateCompanyData,
             restoreDefaultCategories,
-            updateBudget
+            updateBudget,
+
+            // NEW V2 API
+            isLoading,
+            fetchBankStatementItems,
+            handleReconciliationV2,
+            deleteTransaction: async (id) => {
+                const { error } = await supabase.from('transactions').delete().eq('id', id);
+                if (!error) setTransactions(prev => prev.filter(t => t.id !== id));
+            },
         }}>
             {children}
-        </TransactionContext.Provider >
+        </TransactionContext.Provider>
     );
 };
 

@@ -89,7 +89,6 @@ export const GoldDashboard: React.FC<{
                         <h1 className="text-3xl font-bold text-white mb-1">Dashboard Financeiro</h1>
                         <p className="text-gray-400 text-sm">Visão geral interativa da sua saúde financeira.</p>
                     </div>
-
                 </header>
 
                 {/* KPI Cards Row (Merged with Goals) */}
@@ -139,6 +138,7 @@ export const GoldDashboard: React.FC<{
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="text-2xl font-bold text-white tracking-tight group-hover:text-green-400 transition-colors">{formatCurrency(metrics.revenueRealized)}</span>
+                                    <span className="text-xs text-zinc-500 font-medium">Meta: {formatCurrency(metrics.goals.revenue)}</span>
                                 </div>
                             </div>
                             {/* Embedded Chart */}
@@ -171,6 +171,7 @@ export const GoldDashboard: React.FC<{
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="text-2xl font-bold text-white tracking-tight group-hover:text-red-400 transition-colors">{formatCurrency(metrics.expenseRealized)}</span>
+                                    <span className="text-xs text-zinc-500 font-medium">Meta: {formatCurrency(metrics.goals.expense)}</span>
                                 </div>
                             </div>
                             {/* Embedded Chart */}
@@ -203,6 +204,7 @@ export const GoldDashboard: React.FC<{
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="text-2xl font-bold text-white tracking-tight group-hover:text-gold-400 transition-colors">{formatCurrency(metrics.netProfit)}</span>
+                                    <span className="text-xs text-zinc-500 font-medium">Meta: {formatCurrency(metrics.goals.profit)}</span>
                                 </div>
                             </div>
                             {/* Embedded Chart */}
@@ -444,7 +446,7 @@ export const GoldDashboard: React.FC<{
                 </section>
 
                 <div className="h-8"></div>
-            </div>
+            </div >
 
             {/* Bank Breakdown Modal */}
             {
