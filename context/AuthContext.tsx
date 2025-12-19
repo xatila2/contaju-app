@@ -30,21 +30,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         // Check active session
         const initSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                await fetchProfile(session.user.id);
+            console.log('[AuthDebug] initSession start');
+            try {
+                // Defensive timeout: If Supabase hangs, we proceed as logged out
+                const timeoutPromise = new Promise<{ data: { session: null }, error: any }>((resolve) => {
+                    setTimeout(() => resolve({ data: { session: null }, error: new Error("Timeout") }), 5000);
+                });
+
+                const { data, error } = await Promise.race([
+                    supabase.auth.getSession(),
+                    timeoutPromise
+                ]);
+
+                console.log('[AuthDebug] getSession result', { hasSession: !!data?.session, error });
+
+                const session = data?.session;
+                setSession(session ?? null);
+                setUser(session?.user ?? null);
+
+                if (session?.user) {
+                    console.log('[AuthDebug] fetching profile for', session.user.id);
+                    await fetchProfile(session.user.id);
+                    console.log('[AuthDebug] fetchProfile done');
+                }
+            } catch (e) {
+                console.error('[AuthDebug] initSession error', e);
+            } finally {
+                console.log('[AuthDebug] setting loading false');
+                setLoading(false);
             }
-            setLoading(false);
         };
 
         const fetchProfile = async (userId: string) => {
-            const { data } = await supabase
+            console.log('[AuthDebug] fetchProfile start query');
+            const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
                 .single();
+            console.log('[AuthDebug] fetchProfile query result', { data, error });
             if (data) setProfile(data as Profile);
         };
 
@@ -52,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            console.log('[AuthDebug] onAuthStateChange', _event);
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
