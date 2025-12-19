@@ -16,11 +16,18 @@ export const Login: React.FC = () => {
         setError(null);
 
         try {
-            // 1. Authenticate
-            const { data, error: authError } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            // 1. Authenticate with Timeout Protection
+            const timeoutPromise = new Promise<{ data: { user: null, session: null }, error: any }>((_, reject) => {
+                setTimeout(() => reject(new Error('Tempo limite de conexão excedido. Tente novamente.')), 10000);
             });
+
+            const { data, error: authError } = await Promise.race([
+                supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                }),
+                timeoutPromise
+            ]) as any;
 
             if (authError) throw authError;
 
