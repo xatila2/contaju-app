@@ -380,3 +380,22 @@ export interface CardDefinition {
   defaultType: ChartType;
   allowedTypes: ChartType[];
 }
+
+// --- Missing Types for Context ---
+export interface BankStatementLine {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  fitid: string;
+  memo?: string;
+}
+
+export interface ReconciliationMatch {
+  id: string;
+  statementLineId: string;
+  transactionId?: string;
+  confidence: number;
+  type: 'match' | 'new' | 'transfer';
+  data?: any; // For new transaction data
+}

@@ -50,8 +50,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 if (session?.user) {
                     console.log('[AuthDebug] fetching profile for', session.user.id);
-                    await fetchProfile(session.user.id);
-                    console.log('[AuthDebug] fetchProfile done');
+                    // Fetch profile with timeout protection
+                    const profilePromise = fetchProfile(session.user.id);
+                    const profileTimeout = new Promise((resolve) => setTimeout(resolve, 3000));
+                    await Promise.race([profilePromise, profileTimeout]);
                 }
             } catch (e) {
                 console.error('[AuthDebug] initSession error', e);
@@ -62,17 +64,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         const fetchProfile = async (userId: string) => {
-            console.log('[AuthDebug] fetchProfile start query');
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single();
-            console.log('[AuthDebug] fetchProfile query result', { data, error });
-            if (data) setProfile(data as Profile);
+            try {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+                if (data) setProfile(data as Profile);
+            } catch (e) {
+                console.error('Profile fetch error', e);
+            }
         };
 
         initSession();
+
+        // FAILSAFE: Force loading to false after 7 seconds max
+        const failsafe = setTimeout(() => {
+            if (loading) {
+                console.warn('⚠️ AuthContext Failsafe triggered: preventing infinite load');
+                setLoading(false);
+            }
+        }, 7000);
 
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -87,7 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            subscription.unsubscribe();
+            clearTimeout(failsafe);
+        };
     }, []);
 
     const signOut = async () => {

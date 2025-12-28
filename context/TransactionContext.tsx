@@ -472,6 +472,18 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         loadData();
     }, [user]);
 
+    // FAILSAFE: Global Loading Timeout for Context
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (isLoading) {
+            timer = setTimeout(() => {
+                console.warn('⚠️ TransactionContext Global Failsafe: Forcing loading false after 10s');
+                setIsLoading(false);
+            }, 10000);
+        }
+        return () => { if (timer) clearTimeout(timer); };
+    }, [isLoading]);
+
     const restoreDefaultCategories = async () => {
         if (!companyId) return;
         setIsLoading(true);
