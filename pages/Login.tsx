@@ -108,9 +108,47 @@ export const Login: React.FC = () => {
                                         alert(`FALHA DE CONEXÃO:\n${err.message}\nVerifique se o Vercel IP não está bloqueado ou se é erro de CORS.`);
                                     }
                                 }}
-                                className="underline cursor-pointer hover:text-blue-500"
+                                className="underline cursor-pointer hover:text-blue-500 mr-4"
                             >
                                 Testar Conexão
+                            </button>
+
+                            <button
+                                onClick={async (e) => {
+                                    e.preventDefault();
+                                    const url = import.meta.env.VITE_SUPABASE_URL;
+                                    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+                                    if (!email || !password) { alert('Digite e-mail e senha para testar o login.'); return; }
+
+                                    try {
+                                        const start = Date.now();
+                                        // Try raw login via fetch
+                                        const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'apikey': key,
+                                                'Authorization': `Bearer ${key}`
+                                            },
+                                            body: JSON.stringify({ email, password })
+                                        });
+
+                                        const data = await res.json();
+                                        const time = Date.now() - start;
+
+                                        if (res.ok) {
+                                            alert(`LOGIN RAW (FETCH) SUCESSO!\nTempo: ${time}ms\nUser ID: ${data.user?.id}\n\nTire print disso! Isso prova que o erro é no SDK do site, não na sua senha.`);
+                                        } else {
+                                            alert(`LOGIN RAW FALHOU:\nStatus: ${res.status}\nErro: ${JSON.stringify(data)}\n\nIsso indica bloqueio no banco.`);
+                                        }
+                                    } catch (err: any) {
+                                        alert(`ERRO DE REDE NO LOGIN:\n${err.message}`);
+                                    }
+                                }}
+                                className="underline cursor-pointer hover:text-green-500 font-bold"
+                            >
+                                Testar Login (Raw)
                             </button>
                         </div>
                         <div>URL: {import.meta.env.VITE_SUPABASE_URL ? `${import.meta.env.VITE_SUPABASE_URL.substring(0, 20)}...` : 'N/A'}</div>
