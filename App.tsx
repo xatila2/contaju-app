@@ -165,20 +165,8 @@ const MainLayout = () => {
 
 const AppContent = () => {
   const { user, profile, loading: authLoading } = useAuth();
-  const [forceRender, setForceRender] = useState(false);
 
-  // Overwatch: If Auth takes too long (>8s), force entry
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (authLoading) {
-        console.warn("⚠️ AppContent: Force Render triggered (Auth stuck)");
-        setForceRender(true);
-      }
-    }, 8000);
-    return () => clearTimeout(timer);
-  }, [authLoading]);
-
-  if (authLoading && !forceRender) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-zinc-500 gap-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
