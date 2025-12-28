@@ -25,38 +25,70 @@ export const Login: React.FC = () => {
         setError(null);
 
         try {
-            // 1. Authenticate with Timeout Protection
-            const timeoutPromise = new Promise<{ data: { user: null, session: null }, error: any }>((_, reject) => {
-                setTimeout(() => reject(new Error('Tempo limite de conexão excedido. Tente novamente.')), 10000);
-            });
+            let sessionData = null;
+            let profileId = null;
 
-            const { data, error: authError } = await Promise.race([
-                supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                }),
-                timeoutPromise
-            ]) as any;
+            // 1. Try Standard SDK Login with Short Timeout
+            try {
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('SDK Timeout')), 5000)
+                );
 
-            if (authError) throw authError;
+                const { data, error: authError } = await Promise.race([
+                    supabase.auth.signInWithPassword({ email, password }),
+                    timeoutPromise
+                ]) as any;
 
-            if (data.user) {
-                // 2. Check Approval Status
-                const { data: profile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('is_approved')
-                    .eq('id', data.user.id)
-                    .single();
+                if (authError) throw authError;
+                sessionData = data;
+                profileId = data.user?.id;
+            } catch (err: any) {
+                console.warn('⚠️ SDK Login failed/timed out, trying Raw Fallback...', err);
 
-                // If profile exists and is NOT approved
-                if (profile && !profile.is_approved) {
-                    await supabase.auth.signOut(); // Force signout
-                    throw new Error('Sua conta aguarda aprovação do administrador.');
+                // 2. FALLBACK: Raw Fetch Login
+                const url = import.meta.env.VITE_SUPABASE_URL;
+                const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+                const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': key,
+                        'Authorization': `Bearer ${key}`
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.msg || data.error_description || 'Falha no login (Fallback)');
                 }
 
-                // Note: If profile doesn't exist (legacy users), we might want to allow access or create one.
-                // For strict security, we assume profile must exist or defaults to 'false' if we treat null as false.
-                // But typically handle_new_user takes care of new ones. Legacy ones might fail here if not migrated.
+                // Manually set session in SDK
+                const { error: setSessionError } = await supabase.auth.setSession({
+                    access_token: data.access_token,
+                    refresh_token: data.refresh_token,
+                });
+
+                if (setSessionError) throw setSessionError;
+
+                sessionData = { user: data.user };
+                profileId = data.user?.id;
+            }
+
+            // 3. Post-Login Checks
+            if (profileId) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('is_approved')
+                    .eq('id', profileId)
+                    .single();
+
+                if (profile && !profile.is_approved) {
+                    await supabase.auth.signOut();
+                    throw new Error('Sua conta aguarda aprovação do administrador.');
+                }
             }
 
             navigate('/');
@@ -87,72 +119,6 @@ export const Login: React.FC = () => {
                             {error}
                         </div>
                     )}
-
-                    {/* Network Diagnostics for User */}
-                    <div className="mb-4 p-3 bg-zinc-100 dark:bg-zinc-800 rounded text-xs text-zinc-500 font-mono">
-                        <div className="flex justify-between items-center mb-2">
-                            <span>Status da Rede:</span>
-                            <button
-                                onClick={async (e) => {
-                                    e.preventDefault();
-                                    const url = import.meta.env.VITE_SUPABASE_URL;
-                                    if (!url) { alert('URL não encontrada'); return; }
-
-                                    try {
-                                        const start = Date.now();
-                                        // Try to fetch the Auth endpoint health or root
-                                        const res = await fetch(`${url}/auth/v1/health`, { method: 'GET' });
-                                        const time = Date.now() - start;
-                                        alert(`Teste de Conexão:\nURL: ${url.substring(0, 15)}...\nStatus: ${res.status} (${res.statusText})\nTempo: ${time}ms\nOK!`);
-                                    } catch (err: any) {
-                                        alert(`FALHA DE CONEXÃO:\n${err.message}\nVerifique se o Vercel IP não está bloqueado ou se é erro de CORS.`);
-                                    }
-                                }}
-                                className="underline cursor-pointer hover:text-blue-500 mr-4"
-                            >
-                                Testar Conexão
-                            </button>
-
-                            <button
-                                onClick={async (e) => {
-                                    e.preventDefault();
-                                    const url = import.meta.env.VITE_SUPABASE_URL;
-                                    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-                                    if (!email || !password) { alert('Digite e-mail e senha para testar o login.'); return; }
-
-                                    try {
-                                        const start = Date.now();
-                                        // Try raw login via fetch
-                                        const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'apikey': key,
-                                                'Authorization': `Bearer ${key}`
-                                            },
-                                            body: JSON.stringify({ email, password })
-                                        });
-
-                                        const data = await res.json();
-                                        const time = Date.now() - start;
-
-                                        if (res.ok) {
-                                            alert(`LOGIN RAW (FETCH) SUCESSO!\nTempo: ${time}ms\nUser ID: ${data.user?.id}\n\nTire print disso! Isso prova que o erro é no SDK do site, não na sua senha.`);
-                                        } else {
-                                            alert(`LOGIN RAW FALHOU:\nStatus: ${res.status}\nErro: ${JSON.stringify(data)}\n\nIsso indica bloqueio no banco.`);
-                                        }
-                                    } catch (err: any) {
-                                        alert(`ERRO DE REDE NO LOGIN:\n${err.message}`);
-                                    }
-                                }}
-                                className="underline cursor-pointer hover:text-green-500 font-bold"
-                            >
-                                Testar Login (Raw)
-                            </button>
-                        </div>
-                        <div>URL: {import.meta.env.VITE_SUPABASE_URL ? `${import.meta.env.VITE_SUPABASE_URL.substring(0, 20)}...` : 'N/A'}</div>
-                    </div>
 
                     <form onSubmit={handleLogin} className="space-y-4">
                         <div className="space-y-2">
