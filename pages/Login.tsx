@@ -10,6 +10,15 @@ export const Login: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Debug Check: Verify if Environment Variables are loaded
+    React.useEffect(() => {
+        const url = import.meta.env.VITE_SUPABASE_URL;
+        const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        if (!url || !key) {
+            setError('ERRO CRÍTICO: Variáveis de Ambiente (VITE_SUPABASE_URL) não encontradas. Configure no Vercel!');
+        }
+    }, []);
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
