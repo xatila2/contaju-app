@@ -164,19 +164,13 @@ const MainLayout = () => {
 };
 
 const AppContent = () => {
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
 
   if (authLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-zinc-500 gap-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
         <p className="animate-pulse">Carregando Sistema...</p>
-        <button
-          onClick={() => signOut()}
-          className="mt-4 text-xs text-red-500 hover:text-red-700 underline"
-        >
-          Demorando muito? Sair
-        </button>
       </div>
     );
   }
