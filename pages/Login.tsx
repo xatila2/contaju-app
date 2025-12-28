@@ -88,6 +88,34 @@ export const Login: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Network Diagnostics for User */}
+                    <div className="mb-4 p-3 bg-zinc-100 dark:bg-zinc-800 rounded text-xs text-zinc-500 font-mono">
+                        <div className="flex justify-between items-center mb-2">
+                            <span>Status da Rede:</span>
+                            <button
+                                onClick={async (e) => {
+                                    e.preventDefault();
+                                    const url = import.meta.env.VITE_SUPABASE_URL;
+                                    if (!url) { alert('URL não encontrada'); return; }
+
+                                    try {
+                                        const start = Date.now();
+                                        // Try to fetch the Auth endpoint health or root
+                                        const res = await fetch(`${url}/auth/v1/health`, { method: 'GET' });
+                                        const time = Date.now() - start;
+                                        alert(`Teste de Conexão:\nURL: ${url.substring(0, 15)}...\nStatus: ${res.status} (${res.statusText})\nTempo: ${time}ms\nOK!`);
+                                    } catch (err: any) {
+                                        alert(`FALHA DE CONEXÃO:\n${err.message}\nVerifique se o Vercel IP não está bloqueado ou se é erro de CORS.`);
+                                    }
+                                }}
+                                className="underline cursor-pointer hover:text-blue-500"
+                            >
+                                Testar Conexão
+                            </button>
+                        </div>
+                        <div>URL: {import.meta.env.VITE_SUPABASE_URL ? `${import.meta.env.VITE_SUPABASE_URL.substring(0, 20)}...` : 'N/A'}</div>
+                    </div>
+
                     <form onSubmit={handleLogin} className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">E-mail</label>
