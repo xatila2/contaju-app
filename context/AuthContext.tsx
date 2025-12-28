@@ -28,19 +28,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check active session
+        let mounted = true;
+
+        // WATCHDOG: The final authority.
+        // If loading is still true after 5 seconds, FORCE it to false.
+        const watchdog = setTimeout(() => {
+            if (mounted && loading) {
+                console.warn('⚠️ AuthContext Watchdog: Forcing loading completion.');
+                setLoading(false);
+            }
+        }, 5000);
+
         const initSession = async () => {
             console.log('[AuthDebug] initSession start');
             try {
-                // Defensive timeout: If Supabase hangs, we proceed as logged out
+                // Short timeout for initial session check
                 const timeoutPromise = new Promise<{ data: { session: null }, error: any }>((resolve) => {
-                    setTimeout(() => resolve({ data: { session: null }, error: new Error("Timeout") }), 5000);
+                    setTimeout(() => resolve({ data: { session: null }, error: new Error("Timeout") }), 3000);
                 });
 
                 const { data, error } = await Promise.race([
                     supabase.auth.getSession(),
                     timeoutPromise
                 ]);
+
+                if (!mounted) return;
 
                 console.log('[AuthDebug] getSession result', { hasSession: !!data?.session, error });
 
@@ -49,17 +61,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setUser(session?.user ?? null);
 
                 if (session?.user) {
-                    console.log('[AuthDebug] fetching profile for', session.user.id);
-                    // Fetch profile with timeout protection
-                    const profilePromise = fetchProfile(session.user.id);
-                    const profileTimeout = new Promise((resolve) => setTimeout(resolve, 3000));
-                    await Promise.race([profilePromise, profileTimeout]);
+                    // Fetch profile with strict timeout
+                    try {
+                        const profilePromise = fetchProfile(session.user.id);
+                        const profileTimeout = new Promise((resolve) => setTimeout(resolve, 3000));
+                        await Promise.race([profilePromise, profileTimeout]);
+                    } catch (e) {
+                        console.error("Profile fetch race error", e);
+                    }
                 }
             } catch (e) {
                 console.error('[AuthDebug] initSession error', e);
             } finally {
-                console.log('[AuthDebug] setting loading false');
-                setLoading(false);
+                if (mounted) setLoading(false);
             }
         };
 
@@ -69,39 +83,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     .from('profiles')
                     .select('*')
                     .eq('id', userId)
-                    .single();
-                if (data) setProfile(data as Profile);
+                    .single(); // Requires fix_profile_policy.sql to be safe
+                if (mounted && data) setProfile(data as Profile);
             } catch (e) {
                 console.error('Profile fetch error', e);
             }
         };
 
+        // Initialize immediately
         initSession();
-
-        // FAILSAFE: Force loading to false after 7 seconds max
-        const failsafe = setTimeout(() => {
-            if (loading) {
-                console.warn('⚠️ AuthContext Failsafe triggered: preventing infinite load');
-                setLoading(false);
-            }
-        }, 7000);
 
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (!mounted) return;
             console.log('[AuthDebug] onAuthStateChange', _event);
+
+            // If we receive an event, we trust it more than initSession
             setSession(session);
             setUser(session?.user ?? null);
+
             if (session?.user) {
                 await fetchProfile(session.user.id);
             } else {
                 setProfile(null);
             }
+            // Ensure we unblock
             setLoading(false);
         });
 
         return () => {
+            mounted = false;
             subscription.unsubscribe();
-            clearTimeout(failsafe);
+            clearTimeout(watchdog);
         };
     }, []);
 
