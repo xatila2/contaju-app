@@ -315,26 +315,46 @@ export const Layout: React.FC<LayoutProps> = ({
 
           <div className="p-4 border-t border-zinc-800/50">
             <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} bg-zinc-900 p-2 rounded-lg border border-zinc-800`}>
-              <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleNavigation('/settings?tab=users')}>
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center text-xs font-bold text-black shadow-md shrink-0">
-                  {user?.email?.slice(0, 2).toUpperCase() || 'US'}
-                </div>
-                {!isCollapsed && (
-                  <div className="overflow-hidden animate-in fade-in">
-                    <p className="text-sm font-medium text-white truncate max-w-[100px]" title={user?.email || ''}>{user?.email?.split('@')[0] || 'Usuario'}</p>
-                    <p className="text-xs text-zinc-500 truncate">Admin</p>
+              {!isCollapsed ? (
+                // EXPANDED MODE
+                <>
+                  <div className="flex items-center space-x-3 cursor-pointer overflow-hidden" onClick={() => handleNavigation('/settings?tab=users')}>
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center text-xs font-bold text-black shadow-md shrink-0">
+                      {user?.email?.slice(0, 2).toUpperCase() || 'US'}
+                    </div>
+                    <div className="overflow-hidden animate-in fade-in">
+                      <p className="text-sm font-medium text-white truncate max-w-[100px]" title={user?.email || ''}>{user?.email?.split('@')[0] || 'Usuario'}</p>
+                      <p className="text-xs text-zinc-500 truncate">Admin</p>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {!isCollapsed && (
-                <button
-                  onClick={signOut}
-                  className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-zinc-800 rounded transition-colors"
-                  title="Sair"
-                >
-                  <LogOut size={16} />
-                </button>
+                  <button
+                    onClick={signOut}
+                    className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-zinc-800 rounded transition-colors"
+                    title="Sair"
+                  >
+                    <LogOut size={16} />
+                  </button>
+                </>
+              ) : (
+                // COLLAPSED MODE
+                <div className="flex flex-col items-center gap-3 w-full">
+                  <div
+                    className="h-8 w-8 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center text-xs font-bold text-black shadow-md shrink-0 cursor-pointer"
+                    onClick={() => handleNavigation('/settings?tab=users')}
+                    title={user?.email}
+                  >
+                    {user?.email?.slice(0, 2).toUpperCase() || 'US'}
+                  </div>
+
+                  <button
+                    onClick={signOut}
+                    className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-zinc-800 rounded transition-colors"
+                    title="Sair"
+                  >
+                    <LogOut size={16} />
+                  </button>
+                </div>
               )}
             </div>
           </div>
