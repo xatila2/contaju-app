@@ -150,17 +150,45 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     const ensureCompany = async (currentUser: any) => {
         if (!currentUser) return null;
 
-        // Try to find existing company OWNED BY USER
-        const { data: companies, error } = await supabase.from('companies')
-            .select('id')
-            .eq('owner_id', currentUser.id)
-            .limit(1);
+        console.log("[Context] ensureCompany: Checking for existing company...");
 
-        if (companies && companies.length > 0) {
-            return companies[0].id;
+        // STRATEGY 1: Try RPC (Fastest, avoids RLS recursion)
+        try {
+            const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_company_id');
+            if (!rpcError && rpcData) {
+                console.log("[Context] ensureCompany: Found via RPC:", rpcData);
+                return rpcData;
+            }
+            if (rpcError) {
+                console.warn("[Context] ensureCompany: RPC failed (Function might not exist yet), falling back to SELECT.", rpcError.message);
+            }
+        } catch (e) {
+            console.warn("[Context] ensureCompany: RPC Exception", e);
         }
 
-        // Create default for THIS user
+        // STRATEGY 2: Legacy Select (With Timeout)
+        try {
+            // Create a promise that rejects after 5 seconds
+            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Select Timeout")), 5000));
+
+            const selectPromise = supabase.from('companies')
+                .select('id')
+                .eq('owner_id', currentUser.id)
+                .limit(1);
+
+            const { data: companies, error } = await Promise.race([selectPromise, timeout]) as any;
+
+            if (companies && companies.length > 0) {
+                console.log("[Context] ensureCompany: Found via SELECT:", companies[0].id);
+                return companies[0].id;
+            }
+        } catch (e) {
+            console.error("[Context] ensureCompany: Select Failed or Timed Out", e);
+            // Don't return null yet, try insert
+        }
+
+        // STRATEGY 3: Insert (Create new)
+        console.log("[Context] ensureCompany: No company found. Creating new...");
         const { data: newCompany, error: createError } = await supabase.from('companies').insert({
             name: 'Minha Empresa',
             document: '',
@@ -171,6 +199,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
             console.error('Error creating company:', createError);
             return null;
         }
+        console.log("[Context] ensureCompany: Created new company:", newCompany.id);
         return newCompany.id;
     };
 
@@ -207,19 +236,21 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
             setBankAccounts([]);
             setCostCenters([]);
             setCreditCards([]);
-            // ... reset others if needed
             setIsLoading(false);
             return;
         }
 
         setIsLoading(true);
         try {
+            console.log("🚀 [Debug] loadData Start for User:", user.email);
             const cid = await ensureCompany(user);
             console.log("🔍 [Debug] Ensure Company Returned:", cid);
 
             if (!cid) {
                 console.error("❌ [Debug] Could not ensure company. CID is missing.");
-                throw new Error("Could not ensure company.");
+                // Do not throw here, allow UI to show empty state/error
+                setIsLoading(false);
+                return;
             }
             setCompanyId(cid);
 
@@ -237,7 +268,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 { data: purchasesData },
                 settingsResult,
                 { data: rulesData },
-                { data: goalsData }
+                { data: goalsData },
+                { data: clientsData }
             ] = await Promise.all([
                 supabase.from('categories').select('*').eq('company_id', cid),
                 supabase.from('bank_accounts').select('*').eq('company_id', cid),
@@ -253,21 +285,28 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 supabase.from('clients').select('*').eq('company_id', cid)
             ]);
 
+            // Set Clients
+            if (clientsData) {
+                setClients(clientsData.map((c: any) => ({
+                    id: c.id,
+                    name: c.name,
+                    email: c.email,
+                    phone: c.phone,
+                    document: c.document,
+                    type: c.type,
+                    notes: c.notes,
+                    companyId: c.company_id,
+                    createdAt: c.created_at
+                })));
+            }
+
             console.log("📊 [Debug] Fetch Results:", {
                 categories: cats?.length,
                 errCats,
-                banks: banks?.length,
-                errBanks,
                 transactions: txs?.length,
                 errTxs,
                 cid
             });
-
-            if (txs && txs.length === 0) {
-                console.warn("⚠️ [Debug] Zero transactions found for this company!");
-            } else {
-                console.log("✅ [Debug] Found transactions:", txs?.length);
-            }
 
             // Set Settings
             const companyData = settingsResult?.data as any;
@@ -279,7 +318,6 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                     setCompanySettings(prev => ({ ...prev, capitalGiroNecessario: companyData.capital_giro_necessario }));
                 }
                 if (companyData.notification_settings) {
-                    // Merge with defaults to ensure new fields exists
                     setNotificationSettings(prev => ({ ...prev, ...companyData.notification_settings }));
                 }
 
@@ -295,13 +333,12 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
             }
 
 
-            // Check if categories are empty and seed if necessary
-            let finalCategories = cats;
-            if (cats && cats.length === 0) {
-                await seedDefaultCategories(cid);
-                const { data: newCats } = await supabase.from('categories').select('*').eq('company_id', cid);
-                if (newCats) finalCategories = newCats;
-            }
+            // Categories Logic
+            let finalCategories = cats || [];
+
+            // Note: We REMOVED the auto-seed logic from here.
+            // Why? To avoid blocking the initial load.
+            // We moved it to a separate "Healer" effect below.
 
             if (finalCategories) {
                 setCategories(finalCategories.map((c: any) => ({
@@ -313,6 +350,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                     isSystemDefault: c.is_system_default
                 })));
             }
+
+            // ... (Rest of data mapping remains the same)
 
             if (banks) {
                 setBankAccounts(banks.map((b: any) => ({
@@ -356,7 +395,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                     categoryId: p.category_id,
                     invoiceNumber: p.invoice_number,
                     installmentsCount: p.installments_count,
-                    linkedTransactionIds: [] // TODO: Resolve links if possible, or fetch separately
+                    linkedTransactionIds: []
                 })));
             }
 
@@ -394,11 +433,11 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                         id: t.id,
                         description: t.description,
                         amount: Number(t.amount),
-                        type: 'expense', // Always expense for CC items
+                        type: 'expense',
                         date: t.transaction_date,
                         launchDate: t.transaction_date,
-                        dueDate: t.transaction_date, // Usually same as tx date for the item itself
-                        status: 'pending', // CC items are pending until invoice paid? Or use logic
+                        dueDate: t.transaction_date,
+                        status: 'pending',
                         categoryId: t.category_id,
                         category: cats?.find((c: any) => c.id === t.category_id)?.name || 'Outros',
                         creditCardId: t.credit_card_id,
@@ -415,7 +454,6 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
 
             setTransactions(loadedTransactions);
 
-            // Mapping Budgets to PlanningData
             if (budgets) {
                 setPlanningData(budgets.map((b: any) => ({
                     month: b.month,
@@ -426,7 +464,6 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 })));
             }
 
-            // Set Category Rules
             if (rulesData) {
                 setCategoryRules(rulesData.map((r: any) => ({
                     id: r.id,
@@ -438,28 +475,15 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
                 })));
             }
 
-            // Set Category Goals
             if (goalsData) {
                 setCategoryGroupGoals(goalsData.map((g: any) => ({
                     id: g.id,
-                    groupId: g.category_id, // Mapping category_id to groupId as per previous type usage usage
+                    groupId: g.category_id,
                     year: g.year,
                     month: g.month,
                     goalAmount: Number(g.goal_amount)
                 })));
             }
-
-            // Set Category Goals
-            if (goalsData) {
-                setCategoryGroupGoals(goalsData.map((g: any) => ({
-                    id: g.id,
-                    groupId: g.category_id, // Mapping category_id to groupId as per previous type usage usage
-                    year: g.year,
-                    month: g.month,
-                    goalAmount: Number(g.goal_amount)
-                })));
-            }
-
 
         } catch (error) {
             console.error("Supabase Load Error:", error);
@@ -471,6 +495,35 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     useEffect(() => {
         loadData();
     }, [user]);
+
+    // SELF-HEALING: Categories
+    // If we have a company but NO categories, try to seed them.
+    useEffect(() => {
+        let isHealing = false;
+        const heal = async () => {
+            if (companyId && categories.length === 0 && !isLoading && !isHealing) {
+                console.warn('🚑 [Self-Healing] Missing Categories detected. Attempting to seed...');
+                isHealing = true;
+                await seedDefaultCategories(companyId);
+                const { data: newCats } = await supabase.from('categories').select('*').eq('company_id', companyId);
+                if (newCats && newCats.length > 0) {
+                    setCategories(newCats.map((c: any) => ({
+                        id: c.id,
+                        name: c.name,
+                        type: c.type as any,
+                        code: c.code || '',
+                        parentId: c.parent_id,
+                        isSystemDefault: c.is_system_default
+                    })));
+                    console.warn('✅ [Self-Healing] Categories restored successfully.');
+                }
+                isHealing = false;
+            }
+        };
+        // Debounce slightly
+        const timer = setTimeout(heal, 2000);
+        return () => clearTimeout(timer);
+    }, [companyId, categories.length, isLoading]);
 
     // FAILSAFE: Global Loading Timeout for Context
     useEffect(() => {

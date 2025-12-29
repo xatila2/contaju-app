@@ -35,28 +35,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let mounted = true;
 
         // WATCHDOG: The final authority.
-        // If loading is still true after 5 seconds, FORCE it to false.
+        // If loading is still true after 15 seconds, FORCE it to false.
+        // Increased from 5s to 15s to allow for slower networks/timeouts.
         const watchdog = setTimeout(() => {
             if (mounted && loading) {
                 console.warn('⚠️ AuthContext Watchdog: Forcing loading completion.');
                 setAuthStatus('Tempo limite excedido. Liberando...');
                 setLoading(false);
             }
-        }, 5000);
+        }, 15000);
 
         const initSession = async () => {
             console.log('[AuthDebug] initSession start');
             setAuthStatus('Verificando Sessão (Supabase)...');
             try {
-                // Short timeout for initial session check
+                // Timeout for initial session check
                 const timeoutPromise = new Promise<{ data: { session: null }, error: any }>((resolve) => {
-                    setTimeout(() => resolve({ data: { session: null }, error: new Error("Timeout") }), 8000);
+                    setTimeout(() => resolve({ data: { session: null }, error: new Error("Timeout") }), 14000);
                 });
 
-                const { data, error } = await Promise.race([
+                // Attempt 1: Get Session
+                let { data, error } = await Promise.race([
                     supabase.auth.getSession(),
                     timeoutPromise
-                ]);
+                ]) as any;
+
+                // Fallback: If no session, try getUser directly (sometimes more reliable)
+                if (!data?.session) {
+                    console.warn('[AuthDebug] Session null, trying getUser fallback...');
+                    const { data: userData, error: userError } = await supabase.auth.getUser();
+                    if (userData?.user) {
+                        console.log('[AuthDebug] getUser succeeded where getSession failed.');
+                        // Re-fetch session to ensure token presence if needed, or construct mock session
+                        // For now, rely on onAuthStateChange to catch up, or trust the user object.
+                        // We need a session mainly for the token.
+                        const { data: refreshData } = await supabase.auth.refreshSession();
+                        if (refreshData.session) {
+                            data = refreshData;
+                        }
+                    }
+                }
 
                 if (!mounted) return;
 
@@ -71,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     // Fetch profile with strict timeout
                     try {
                         const profilePromise = fetchProfile(session.user.id);
-                        const profileTimeout = new Promise((resolve) => setTimeout(resolve, 3000));
+                        const profileTimeout = new Promise((resolve) => setTimeout(resolve, 5000));
                         await Promise.race([profilePromise, profileTimeout]);
                     } catch (e) {
                         console.error("Profile fetch race error", e);
