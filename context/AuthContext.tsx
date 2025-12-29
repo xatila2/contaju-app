@@ -10,6 +10,7 @@ interface AuthContextType {
     loading: boolean;
     isAdmin: boolean;
     signOut: () => Promise<void>;
+    authStatus: string;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
     loading: true,
     isAdmin: false,
     signOut: async () => { },
+    authStatus: '',
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -26,6 +28,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const [authStatus, setAuthStatus] = useState('Inicializando...');
 
     useEffect(() => {
         let mounted = true;
@@ -35,12 +39,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const watchdog = setTimeout(() => {
             if (mounted && loading) {
                 console.warn('⚠️ AuthContext Watchdog: Forcing loading completion.');
+                setAuthStatus('Tempo limite excedido. Liberando...');
                 setLoading(false);
             }
         }, 5000);
 
         const initSession = async () => {
             console.log('[AuthDebug] initSession start');
+            setAuthStatus('Verificando Sessão (Supabase)...');
             try {
                 // Short timeout for initial session check
                 const timeoutPromise = new Promise<{ data: { session: null }, error: any }>((resolve) => {
@@ -61,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setUser(session?.user ?? null);
 
                 if (session?.user) {
+                    setAuthStatus(`Usuário encontrado: ${session.user.email}. Buscando perfil...`);
                     // Fetch profile with strict timeout
                     try {
                         const profilePromise = fetchProfile(session.user.id);
@@ -69,11 +76,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     } catch (e) {
                         console.error("Profile fetch race error", e);
                     }
+                } else {
+                    setAuthStatus('Sessão não encontrada.');
                 }
             } catch (e) {
                 console.error('[AuthDebug] initSession error', e);
+                setAuthStatus('Erro na inicialização.');
             } finally {
-                if (mounted) setLoading(false);
+                if (mounted) {
+                    setAuthStatus('Concluído.');
+                    setLoading(false);
+                }
             }
         };
 
@@ -97,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             if (!mounted) return;
             console.log('[AuthDebug] onAuthStateChange', _event);
+            setAuthStatus(`Evento de Auth: ${_event}`);
 
             // If we receive an event, we trust it more than initSession
             setSession(session);
@@ -119,14 +133,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const signOut = async () => {
+        setAuthStatus('Saindo...');
         await supabase.auth.signOut();
         setProfile(null);
+        setSession(null);
+        setUser(null);
     };
 
     const isAdmin = profile?.role === 'admin';
 
     return (
-        <AuthContext.Provider value={{ session, user, profile, loading, isAdmin, signOut }}>
+        <AuthContext.Provider value={{ session, user, profile, loading, isAdmin, signOut, authStatus }}>
             {children}
         </AuthContext.Provider>
     );

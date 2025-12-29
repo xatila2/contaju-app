@@ -164,13 +164,33 @@ const MainLayout = () => {
 };
 
 const AppContent = () => {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, signOut, authStatus } = useAuth();
+  const [showEscape, setShowEscape] = useState(false);
+
+  useEffect(() => {
+    if (authLoading) {
+      const timer = setTimeout(() => setShowEscape(true), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading]);
 
   if (authLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-900 text-zinc-500 gap-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
-        <p className="animate-pulse">Carregando Sistema...</p>
+        <p className="animate-pulse font-medium">Carregando Sistema...</p>
+        <p className="text-xs text-zinc-400 font-mono">{authStatus}</p>
+
+        {showEscape && (
+          <div className="flex flex-col gap-2 mt-4 items-center animate-in fade-in">
+            <button
+              onClick={() => signOut()}
+              className="text-xs text-red-500 hover:text-red-700 underline"
+            >
+              Demorando muito? Limpar Sessão
+            </button>
+          </div>
+        )}
       </div>
     );
   }
