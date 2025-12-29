@@ -102,7 +102,8 @@ export const Login: React.FC = () => {
                 }
             }
 
-            navigate('/');
+            // Do NOT navigate manually. Let the useEffect rely on the AuthContext state change.
+            // navigate('/');
         } catch (err: any) {
             setError(err.message === 'Invalid login credentials'
                 ? 'E-mail ou senha incorretos.'
