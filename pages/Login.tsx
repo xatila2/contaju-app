@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../src/lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import { Wallet, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 
 export const Login: React.FC = () => {
@@ -10,6 +11,8 @@ export const Login: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const { user } = useAuth(); // Get user from context
+
     // Debug Check: Verify if Environment Variables are loaded
     React.useEffect(() => {
         const url = import.meta.env.VITE_SUPABASE_URL;
@@ -18,6 +21,14 @@ export const Login: React.FC = () => {
             setError('ERRO CRÍTICO: Variáveis de Ambiente (VITE_SUPABASE_URL) não encontradas. Configure no Vercel!');
         }
     }, []);
+
+    // Auto-Redirect if ALREADY logged in (Fixes infinite spinning if handleLogin hangs but AuthContext succeeds)
+    React.useEffect(() => {
+        if (user) {
+            console.log('Login: User detected in context, redirecting...');
+            navigate('/');
+        }
+    }, [user, navigate]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
