@@ -48,90 +48,89 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('[AuthDebug] initSession start');
             setAuthStatus('Verificando Sessão (Supabase)...');
             try {
-                try {
-                    // Short timeout for initial session check
-                    const timeoutPromise = new Promise<{ data: { session: null }, error: any }>((resolve) => {
-                        setTimeout(() => resolve({ data: { session: null }, error: new Error("Timeout") }), 8000);
-                    });
+                // Short timeout for initial session check
+                const timeoutPromise = new Promise<{ data: { session: null }, error: any }>((resolve) => {
+                    setTimeout(() => resolve({ data: { session: null }, error: new Error("Timeout") }), 8000);
+                });
 
-                    const { data, error } = await Promise.race([
-                        supabase.auth.getSession(),
-                        timeoutPromise
-                    ]);
+                const { data, error } = await Promise.race([
+                    supabase.auth.getSession(),
+                    timeoutPromise
+                ]);
 
-                    if (!mounted) return;
-
-                    console.log('[AuthDebug] getSession result', { hasSession: !!data?.session, error });
-
-                    const session = data?.session;
-                    setSession(session ?? null);
-                    setUser(session?.user ?? null);
-
-                    if (session?.user) {
-                        setAuthStatus(`Usuário encontrado: ${session.user.email}. Buscando perfil...`);
-                        // Fetch profile with strict timeout
-                        try {
-                            const profilePromise = fetchProfile(session.user.id);
-                            const profileTimeout = new Promise((resolve) => setTimeout(resolve, 3000));
-                            await Promise.race([profilePromise, profileTimeout]);
-                        } catch (e) {
-                            console.error("Profile fetch race error", e);
-                        }
-                    } else {
-                        setAuthStatus('Sessão não encontrada.');
-                    }
-                } catch (e) {
-                    console.error('[AuthDebug] initSession error', e);
-                    setAuthStatus('Erro na inicialização.');
-                } finally {
-                    if (mounted) {
-                        setAuthStatus('Concluído.');
-                        setLoading(false);
-                    }
-                }
-            };
-
-            const fetchProfile = async (userId: string) => {
-                try {
-                    const { data, error } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', userId)
-                        .single(); // Requires fix_profile_policy.sql to be safe
-                    if (mounted && data) setProfile(data as Profile);
-                } catch (e) {
-                    console.error('Profile fetch error', e);
-                }
-            };
-
-            // Initialize immediately
-            initSession();
-
-            // Listen for changes
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
                 if (!mounted) return;
-                console.log('[AuthDebug] onAuthStateChange', _event);
-                setAuthStatus(`Evento de Auth: ${_event}`);
 
-                // If we receive an event, we trust it more than initSession
-                setSession(session);
+                console.log('[AuthDebug] getSession result', { hasSession: !!data?.session, error });
+
+                const session = data?.session;
+                setSession(session ?? null);
                 setUser(session?.user ?? null);
 
                 if (session?.user) {
-                    await fetchProfile(session.user.id);
+                    setAuthStatus(`Usuário encontrado: ${session.user.email}. Buscando perfil...`);
+                    // Fetch profile with strict timeout
+                    try {
+                        const profilePromise = fetchProfile(session.user.id);
+                        const profileTimeout = new Promise((resolve) => setTimeout(resolve, 3000));
+                        await Promise.race([profilePromise, profileTimeout]);
+                    } catch (e) {
+                        console.error("Profile fetch race error", e);
+                    }
                 } else {
-                    setProfile(null);
+                    setAuthStatus('Sessão não encontrada.');
                 }
-                // Ensure we unblock
-                setLoading(false);
-            });
+            } catch (e) {
+                console.error('[AuthDebug] initSession error', e);
+                setAuthStatus('Erro na inicialização.');
+            } finally {
+                if (mounted) {
+                    setAuthStatus('Concluído.');
+                    setLoading(false);
+                }
+            }
+        };
 
-            return () => {
-                mounted = false;
-                subscription.unsubscribe();
-                clearTimeout(watchdog);
-            };
-        }, []);
+        const fetchProfile = async (userId: string) => {
+            try {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single(); // Requires fix_profile_policy.sql to be safe
+                if (mounted && data) setProfile(data as Profile);
+            } catch (e) {
+                console.error('Profile fetch error', e);
+            }
+        };
+
+        // Initialize immediately
+        initSession();
+
+        // Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (!mounted) return;
+            console.log('[AuthDebug] onAuthStateChange', _event);
+            setAuthStatus(`Evento de Auth: ${_event}`);
+
+            // If we receive an event, we trust it more than initSession
+            setSession(session);
+            setUser(session?.user ?? null);
+
+            if (session?.user) {
+                await fetchProfile(session.user.id);
+            } else {
+                setProfile(null);
+            }
+            // Ensure we unblock
+            setLoading(false);
+        });
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+            clearTimeout(watchdog);
+        };
+    }, []);
 
     const signOut = async () => {
         setAuthStatus('Saindo...');
