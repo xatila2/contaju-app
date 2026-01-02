@@ -183,7 +183,7 @@ export interface Category {
   type: TransactionType;
   parentId?: string;
   isSystemDefault?: boolean;
-  cashFlowType?: 'operational' | 'investment' | 'financing';
+  cashFlowType?: 'operational' | 'investment' | 'financing' | 'financial';
 }
 
 export interface Scenario {

@@ -28,11 +28,11 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-1-2', code: '1.2', name: 'Serviços Prestados', type: 'income', parentId: 'cat-1-0', cashFlowType: 'operational' },
   { id: 'cat-1-3', code: '1.3', name: 'Adiantamento de Clientes', type: 'income', parentId: 'cat-1-0', cashFlowType: 'operational' },
 
-  // 2. CUSTOS VARIÁVEIS
-  { id: 'cat-2-0', code: '2.0', name: 'Outras Receitas', type: 'income', isSystemDefault: true, cashFlowType: 'operational' },
-  { id: 'cat-2-1', code: '2.1', name: 'Juros Recebidos', type: 'income', parentId: 'cat-2-0', cashFlowType: 'operational' },
-  { id: 'cat-2-2', code: '2.2', name: 'Rendimentos de Aplicações', type: 'income', parentId: 'cat-2-0', cashFlowType: 'operational' },
-  { id: 'cat-2-3', code: '2.3', name: 'Outras Entradas', type: 'income', parentId: 'cat-2-0', cashFlowType: 'operational' },
+  // 2. RECEITAS FINANCEIRAS
+  { id: 'cat-2-0', code: '2.0', name: 'Receitas Financeiras', type: 'income', isSystemDefault: true, cashFlowType: 'financial' },
+  { id: 'cat-2-1', code: '2.1', name: 'Juros Recebidos', type: 'income', parentId: 'cat-2-0', cashFlowType: 'financial' },
+  { id: 'cat-2-2', code: '2.2', name: 'Rendimentos de Aplicações', type: 'income', parentId: 'cat-2-0', cashFlowType: 'financial' },
+  { id: 'cat-2-3', code: '2.3', name: 'Outras Entradas', type: 'income', parentId: 'cat-2-0', cashFlowType: 'financial' },
 
   // 3. DESPESAS ADMINISTRATIVAS
   { id: 'cat-3-0', code: '3.0', name: 'Despesas Administrativas', type: 'expense', isSystemDefault: true, cashFlowType: 'operational' },
@@ -69,7 +69,13 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-7-1', code: '7.1', name: 'Fornecedores', type: 'expense', parentId: 'cat-7-0', cashFlowType: 'operational' },
   { id: 'cat-7-2', code: '7.2', name: 'Matéria-Prima', type: 'expense', parentId: 'cat-7-0', cashFlowType: 'operational' },
   { id: 'cat-7-3', code: '7.3', name: 'Transporte e Fretes', type: 'expense', parentId: 'cat-7-0', cashFlowType: 'operational' },
-  { id: 'cat-7-4', code: '7.4', name: 'Manutenção de Equipamentos', type: 'expense', parentId: 'cat-7-0', cashFlowType: 'operational' }
+  { id: 'cat-7-4', code: '7.4', name: 'Manutenção de Equipamentos', type: 'expense', parentId: 'cat-7-0', cashFlowType: 'operational' },
+
+  // 8. DESPESAS FINANCEIRAS
+  { id: 'cat-8-0', code: '8.0', name: 'Despesas Financeiras', type: 'expense', isSystemDefault: true, cashFlowType: 'financial' },
+  { id: 'cat-8-1', code: '8.1', name: 'Juros Pagos', type: 'expense', parentId: 'cat-8-0', cashFlowType: 'financial' },
+  { id: 'cat-8-2', code: '8.2', name: 'Multas e Juros', type: 'expense', parentId: 'cat-8-0', cashFlowType: 'financial' },
+  { id: 'cat-8-3', code: '8.3', name: 'Tarifas Bancárias (Extra)', type: 'expense', parentId: 'cat-8-0', cashFlowType: 'financial' }
 ];
 
 // --- SEED TRANSACTION GENERATOR ---
