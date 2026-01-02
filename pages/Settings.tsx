@@ -463,6 +463,8 @@ export const Settings: React.FC<SettingsProps> = () => {
         restoreDefaultCategories
     } = useTransactions();
 
+    console.log('DEBUG CATEGORIES:', categories);
+
     const location = useLocation();
     const [activeTab, setActiveTab] = useState('chartOfAccounts');
     const [expandedGroups, setExpandedGroups] = useState<string[]>(['cat-1', 'cat-2', 'cat-3', 'cat-4', 'cat-5']);
@@ -719,7 +721,11 @@ export const Settings: React.FC<SettingsProps> = () => {
                         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col min-h-[600px]">
                             <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                 <div><h3 className="text-lg font-bold text-zinc-900 dark:text-white">Plano de Contas</h3><p className="text-xs text-zinc-500 dark:text-zinc-400">Estrutura de Receitas e Despesas.</p></div>
-                                <div className="flex items-center gap-2 w-full md:w-auto"><div className="relative flex-1 md:w-64"><Search size={16} className="absolute left-3 top-2.5 text-zinc-400" /><input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-yellow-500 text-zinc-900 dark:text-white" /></div><button onClick={handleOpenAddCat} className="flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-2 rounded-lg text-sm font-bold transition flex-shrink-0"><Plus size={16} /><span>Adicionar</span></button></div>
+                                <div className="flex items-center gap-2 w-full md:w-auto">
+                                    <div className="relative flex-1 md:w-64"><Search size={16} className="absolute left-3 top-2.5 text-zinc-400" /><input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-yellow-500 text-zinc-900 dark:text-white" /></div>
+                                    <button onClick={restoreDefaultCategories} className="flex items-center space-x-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white px-3 py-2 rounded-lg text-sm font-bold transition flex-shrink-0"><span className="hidden sm:inline">Restaurar Padrão</span><span className="sm:hidden">Restaurar</span></button>
+                                    <button onClick={handleOpenAddCat} className="flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-2 rounded-lg text-sm font-bold transition flex-shrink-0"><Plus size={16} /><span className="hidden sm:inline">Adicionar</span></button>
+                                </div>
                             </div>
                             <div className="flex-1 overflow-auto">
                                 <DndContext

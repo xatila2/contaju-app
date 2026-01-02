@@ -150,45 +150,59 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     const ensureCompany = async (currentUser: any) => {
         if (!currentUser) return null;
 
-        console.log("[Context] ensureCompany: Checking for existing company...");
+        const MAX_RETRIES = 10; // Increased to 10s+ coverage for cold starts
+        const RETRY_DELAY_MS = 1000;
 
-        // STRATEGY 1: Try RPC (Fastest, avoids RLS recursion)
-        try {
-            const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_company_id');
-            if (!rpcError && rpcData) {
-                console.log("[Context] ensureCompany: Found via RPC:", rpcData);
-                return rpcData;
+        console.log("[Context] ensureCompany: Starting discovery...");
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                // STRATEGY 1: RPC (Best for Member & Owner)
+                // We use the new SECURITY DEFINER function that bypasses RLS recursion
+                const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_company_id');
+
+                if (rpcData) {
+                    console.log(`[Context] ensureCompany: Found via RPC (Attempt ${attempt}):`, rpcData);
+                    return rpcData;
+                }
+
+                if (rpcError) {
+                    // Log but continue, RPC might be missing or permission denied
+                    console.debug(`[Context] ensureCompany: RPC Error (Attempt ${attempt}):`, rpcError.message);
+                }
+
+                // STRATEGY 2: Backup SELECT (If RPC not available or returns null)
+                // We trust the RPC more, but this is a failsafe.
+                const { data: companyData, error: selectError } = await supabase
+                    .from('companies')
+                    .select('id')
+                    .eq('owner_id', currentUser.id)
+                    .maybeSingle();
+
+                if (companyData) {
+                    console.log(`[Context] ensureCompany: Found via SELECT (Attempt ${attempt}):`, companyData.id);
+                    return companyData.id;
+                }
+
+                // If Select Error (e.g. RLS blocking?), log it
+                if (selectError) {
+                    console.warn(`[Context] ensureCompany: SELECT Error (Attempt ${attempt}):`, selectError.message);
+                }
+
+                console.log(`[Context] ensureCompany: Attempt ${attempt} failed. Retrying in ${RETRY_DELAY_MS}ms...`);
+                if (attempt < MAX_RETRIES) {
+                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                }
+
+            } catch (error) {
+                console.warn(`[Context] ensureCompany: Error on attempt ${attempt}:`, error);
             }
-            if (rpcError) {
-                console.warn("[Context] ensureCompany: RPC failed (Function might not exist yet), falling back to SELECT.", rpcError.message);
-            }
-        } catch (e) {
-            console.warn("[Context] ensureCompany: RPC Exception", e);
         }
 
-        // STRATEGY 2: Legacy Select (With Timeout)
-        try {
-            // Create a promise that rejects after 5 seconds
-            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Select Timeout")), 5000));
+        // STRATEGY 3: Creation (Last Resort)
+        // Only if 10+ seconds passed and NO company was found.
+        console.warn("[Context] ensureCompany: Exhausted retries. Creating new company (Fallback)...");
 
-            const selectPromise = supabase.from('companies')
-                .select('id')
-                .eq('owner_id', currentUser.id)
-                .limit(1);
-
-            const { data: companies, error } = await Promise.race([selectPromise, timeout]) as any;
-
-            if (companies && companies.length > 0) {
-                console.log("[Context] ensureCompany: Found via SELECT:", companies[0].id);
-                return companies[0].id;
-            }
-        } catch (e) {
-            console.error("[Context] ensureCompany: Select Failed or Timed Out", e);
-            // Don't return null yet, try insert
-        }
-
-        // STRATEGY 3: Insert (Create new)
-        console.log("[Context] ensureCompany: No company found. Creating new...");
         const { data: newCompany, error: createError } = await supabase.from('companies').insert({
             name: 'Minha Empresa',
             document: '',
@@ -197,9 +211,11 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
 
         if (createError) {
             console.error('Error creating company:', createError);
+            alert("Erro crítico: Não foi possível encontrar nem criar sua empresa. Contate o suporte.");
             return null;
         }
-        console.log("[Context] ensureCompany: Created new company:", newCompany.id);
+
+        console.log("[Context] ensureCompany: Created new fallback company:", newCompany.id);
         return newCompany.id;
     };
 
@@ -540,22 +556,68 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     const restoreDefaultCategories = async () => {
         if (!companyId) return;
         setIsLoading(true);
+        console.log("🛠️ [Context] Repairing Categories Hierarchy...");
+
         try {
-            await seedDefaultCategories(companyId);
-            // Refresh categories
-            const { data: newCats } = await supabase.from('categories').select('*').eq('company_id', companyId);
-            if (newCats) {
-                setCategories(newCats.map((c: any) => ({
-                    id: c.id,
-                    name: c.name,
-                    type: c.type as any,
-                    code: c.code || '',
-                    parentId: c.parent_id,
-                    isSystemDefault: c.is_system_default
-                })));
+            // 1. Fetch existing categories
+            const { data: existingCats } = await supabase.from('categories').select('*').eq('company_id', companyId);
+            const nameToIdMap = new Map<string, string>();
+
+            if (existingCats) {
+                existingCats.forEach((c: any) => nameToIdMap.set(c.name.trim(), c.id));
             }
+
+            // 2. Process Default Categories in Order (Parents first)
+            for (const defCat of DEFAULT_CATEGORIES) {
+                const existingId = nameToIdMap.get(defCat.name.trim());
+
+                // Determine Parent ID
+                let parentId = null;
+                if (defCat.parentId) {
+                    // Find parent def cat
+                    const parentDef = DEFAULT_CATEGORIES.find(d => d.id === defCat.parentId);
+                    if (parentDef) {
+                        parentId = nameToIdMap.get(parentDef.name.trim()) || null;
+                    }
+                }
+
+                if (existingId) {
+                    // UPDATE existing
+                    await supabase.from('categories').update({
+                        code: defCat.code,
+                        type: defCat.type,
+                        parent_id: parentId,
+                        is_system_default: true
+                    }).eq('id', existingId);
+                    console.log(`Updated ${defCat.name} (Parent: ${parentId})`);
+                } else {
+                    // INSERT new
+                    const { data: newCat, error } = await supabase.from('categories').insert({
+                        company_id: companyId,
+                        name: defCat.name,
+                        code: defCat.code,
+                        type: defCat.type,
+                        parent_id: parentId,
+                        is_system_default: true
+                    }).select().single();
+
+                    if (newCat) {
+                        nameToIdMap.set(newCat.name.trim(), newCat.id); // Update map for children
+                        console.log(`Inserted ${defCat.name}`);
+                    } else if (error) {
+                        console.error(`Failed to insert ${defCat.name}`, error);
+                    }
+                }
+            }
+
+            // 3. Refresh Context
+            await loadData();
+            console.warn('✅ [Context] Categories repaired successfully.');
+            alert("Plano de Contas restaurado/reparado com sucesso!");
+
         } catch (error) {
-            console.error("Error restoring defaults:", error);
+            console.error("Error repairing categories:", error);
+            alert("Erro ao reparar categorias.");
         } finally {
             setIsLoading(false);
         }
