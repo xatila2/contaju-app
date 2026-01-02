@@ -19,47 +19,57 @@ export const DEFAULT_COST_CENTERS: CostCenter[] = [
 ];
 
 // --- STANDARD CHART OF ACCOUNTS (PLANO DE CONTAS) ---
+// --- STANDARD CHART OF ACCOUNTS (PLANO DE CONTAS) ---
+// Match the Database Template Structure exactly to avoid duplicates
 export const DEFAULT_CATEGORIES: Category[] = [
-  // RECEITAS (1.0)
-  { id: 'cat-1', code: '1.0', name: 'Receitas Operacionais', type: 'income', isSystemDefault: true, cashFlowType: 'operational' },
-  { id: 'cat-1-1', code: '1.01', name: 'Vendas de Produtos', type: 'income', parentId: 'cat-1', cashFlowType: 'operational' },
-  { id: 'cat-1-2', code: '1.02', name: 'Prestação de Serviços', type: 'income', parentId: 'cat-1', cashFlowType: 'operational' },
-  { id: 'cat-1-3', code: '1.03', name: 'Outras Receitas', type: 'income', parentId: 'cat-1', cashFlowType: 'operational' },
+  // 1. RECEITAS
+  { id: 'cat-1-0', code: '1.0', name: 'Receitas Operacionais', type: 'income', isSystemDefault: true, cashFlowType: 'operational' },
+  { id: 'cat-1-1', code: '1.1', name: 'Vendas de Produtos', type: 'income', parentId: 'cat-1-0', cashFlowType: 'operational' },
+  { id: 'cat-1-2', code: '1.2', name: 'Serviços Prestados', type: 'income', parentId: 'cat-1-0', cashFlowType: 'operational' },
+  { id: 'cat-1-3', code: '1.3', name: 'Adiantamento de Clientes', type: 'income', parentId: 'cat-1-0', cashFlowType: 'operational' },
 
-  // DESPESAS VARIÁVEIS (2.0)
-  { id: 'cat-2', code: '2.0', name: 'Custos Variáveis', type: 'expense', isSystemDefault: true, cashFlowType: 'operational' },
-  { id: 'cat-2-1', code: '2.01', name: 'CMV - Custo Mercadoria Vendida', type: 'expense', parentId: 'cat-2', cashFlowType: 'operational' },
-  { id: 'cat-2-2', code: '2.02', name: 'Impostos sobre Vendas', type: 'expense', parentId: 'cat-2', cashFlowType: 'operational' },
-  { id: 'cat-2-3', code: '2.03', name: 'Comissões', type: 'expense', parentId: 'cat-2', cashFlowType: 'operational' },
+  // 2. CUSTOS VARIÁVEIS
+  { id: 'cat-2-0', code: '2.0', name: 'Outras Receitas', type: 'income', isSystemDefault: true, cashFlowType: 'operational' },
+  { id: 'cat-2-1', code: '2.1', name: 'Juros Recebidos', type: 'income', parentId: 'cat-2-0', cashFlowType: 'operational' },
+  { id: 'cat-2-2', code: '2.2', name: 'Rendimentos de Aplicações', type: 'income', parentId: 'cat-2-0', cashFlowType: 'operational' },
+  { id: 'cat-2-3', code: '2.3', name: 'Outras Entradas', type: 'income', parentId: 'cat-2-0', cashFlowType: 'operational' },
 
-  // DESPESAS FIXAS / PESSOAL (3.0)
-  { id: 'cat-3', code: '3.0', name: 'Despesas com Pessoal', type: 'expense', isSystemDefault: true, cashFlowType: 'operational' },
-  { id: 'cat-3-1', code: '3.01', name: 'Salários e Ordenados', type: 'expense', parentId: 'cat-3', cashFlowType: 'operational' },
-  { id: 'cat-3-2', code: '3.02', name: 'Pro-labore', type: 'expense', parentId: 'cat-3', cashFlowType: 'operational' },
-  { id: 'cat-3-3', code: '3.03', name: 'Encargos Sociais', type: 'expense', parentId: 'cat-3', cashFlowType: 'operational' },
+  // 3. DESPESAS ADMINISTRATIVAS
+  { id: 'cat-3-0', code: '3.0', name: 'Despesas Administrativas', type: 'expense', isSystemDefault: true, cashFlowType: 'operational' },
+  { id: 'cat-3-1', code: '3.1', name: 'Aluguel', type: 'expense', parentId: 'cat-3-0', cashFlowType: 'operational' },
+  { id: 'cat-3-2', code: '3.2', name: 'Condomínio', type: 'expense', parentId: 'cat-3-0', cashFlowType: 'operational' },
+  { id: 'cat-3-3', code: '3.3', name: 'Água, Luz e Telefone', type: 'expense', parentId: 'cat-3-0', cashFlowType: 'operational' },
+  { id: 'cat-3-4', code: '3.4', name: 'Internet e Sistemas', type: 'expense', parentId: 'cat-3-0', cashFlowType: 'operational' },
+  { id: 'cat-3-5', code: '3.5', name: 'Material de Escritório', type: 'expense', parentId: 'cat-3-0', cashFlowType: 'operational' },
+  { id: 'cat-3-6', code: '3.6', name: 'Limpeza e Conservação', type: 'expense', parentId: 'cat-3-0', cashFlowType: 'operational' },
+  { id: 'cat-3-7', code: '3.7', name: 'Seguros', type: 'expense', parentId: 'cat-3-0', cashFlowType: 'operational' },
 
-  // DESPESAS ADMINISTRATIVAS (4.0)
-  { id: 'cat-4', code: '4.0', name: 'Despesas Administrativas', type: 'expense', isSystemDefault: true, cashFlowType: 'operational' },
-  { id: 'cat-4-1', code: '4.01', name: 'Aluguel e Condomínio', type: 'expense', parentId: 'cat-4', cashFlowType: 'operational' },
-  { id: 'cat-4-2', code: '4.02', name: 'Energia, Água e Internet', type: 'expense', parentId: 'cat-4', cashFlowType: 'operational' },
-  { id: 'cat-4-3', code: '4.03', name: 'Softwares e Licenças', type: 'expense', parentId: 'cat-4', cashFlowType: 'operational' },
-  { id: 'cat-4-4', code: '4.04', name: 'Marketing e Publicidade', type: 'expense', parentId: 'cat-4', cashFlowType: 'operational' },
+  // 4. PESSOAL
+  { id: 'cat-4-0', code: '4.0', name: 'Pessoal', type: 'expense', isSystemDefault: true, cashFlowType: 'operational' },
+  { id: 'cat-4-1', code: '4.1', name: 'Salários', type: 'expense', parentId: 'cat-4-0', cashFlowType: 'operational' },
+  { id: 'cat-4-2', code: '4.2', name: 'Pró-Labore', type: 'expense', parentId: 'cat-4-0', cashFlowType: 'operational' },
+  { id: 'cat-4-3', code: '4.3', name: 'Vale Transporte/Alimentação', type: 'expense', parentId: 'cat-4-0', cashFlowType: 'operational' },
+  { id: 'cat-4-4', code: '4.4', name: 'Encargos Sociais (INSS/FGTS)', type: 'expense', parentId: 'cat-4-0', cashFlowType: 'operational' },
+  { id: 'cat-4-5', code: '4.5', name: 'Adiantamentos', type: 'expense', parentId: 'cat-4-0', cashFlowType: 'operational' },
 
-  // DESPESAS FINANCEIRAS (5.0)
-  { id: 'cat-5', code: '5.0', name: 'Despesas Financeiras', type: 'expense', isSystemDefault: true, cashFlowType: 'operational' },
-  { id: 'cat-5-1', code: '5.01', name: 'Tarifas Bancárias', type: 'expense', parentId: 'cat-5', cashFlowType: 'operational' },
-  { id: 'cat-5-2', code: '5.02', name: 'Juros Pagos', type: 'expense', parentId: 'cat-5', cashFlowType: 'operational' },
+  // 5. MARKETING
+  { id: 'cat-5-0', code: '5.0', name: 'Marketing e Vendas', type: 'expense', isSystemDefault: true, cashFlowType: 'operational' },
+  { id: 'cat-5-1', code: '5.1', name: 'Publicidade e Propaganda', type: 'expense', parentId: 'cat-5-0', cashFlowType: 'operational' },
+  { id: 'cat-5-2', code: '5.2', name: 'Comissões de Vendas', type: 'expense', parentId: 'cat-5-0', cashFlowType: 'operational' },
+  { id: 'cat-5-3', code: '5.3', name: 'Brindes e Eventos', type: 'expense', parentId: 'cat-5-0', cashFlowType: 'operational' },
 
-  // ATIVIDADES DE INVESTIMENTO (6.0)
-  { id: 'cat-6', code: '6.0', name: 'Investimentos (CAPEX)', type: 'expense', isSystemDefault: true, cashFlowType: 'investment' },
-  { id: 'cat-6-1', code: '6.01', name: 'Aquisição de Máquinas', type: 'expense', parentId: 'cat-6', cashFlowType: 'investment' },
-  { id: 'cat-6-2', code: '6.02', name: 'Compra de Imóveis', type: 'expense', parentId: 'cat-6', cashFlowType: 'investment' },
+  // 6. IMPOSTOS
+  { id: 'cat-6-0', code: '6.0', name: 'Impostos e Taxas', type: 'expense', isSystemDefault: true, cashFlowType: 'operational' },
+  { id: 'cat-6-1', code: '6.1', name: 'Simples Nacional / DAS', type: 'expense', parentId: 'cat-6-0', cashFlowType: 'operational' },
+  { id: 'cat-6-2', code: '6.2', name: 'ICMS / ISS', type: 'expense', parentId: 'cat-6-0', cashFlowType: 'operational' },
+  { id: 'cat-6-3', code: '6.3', name: 'Taxas Bancárias', type: 'expense', parentId: 'cat-6-0', cashFlowType: 'operational' },
 
-  // ATIVIDADES DE FINANCIAMENTO (7.0)
-  { id: 'cat-7', code: '7.0', name: 'Financiamentos', type: 'income', isSystemDefault: true, cashFlowType: 'financing' },
-  { id: 'cat-7-1', code: '7.01', name: 'Empréstimos Bancários', type: 'income', parentId: 'cat-7', cashFlowType: 'financing' },
-  { id: 'cat-7-2', code: '7.02', name: 'Pagamento de Empréstimos', type: 'expense', parentId: 'cat-7', cashFlowType: 'financing' },
-  { id: 'cat-7-3', code: '7.03', name: 'Distribuição de Lucros', type: 'expense', parentId: 'cat-7', cashFlowType: 'financing' },
+  // 7. CUSTOS OPERACIONAIS
+  { id: 'cat-7-0', code: '7.0', name: 'Custos Operacionais', type: 'expense', isSystemDefault: true, cashFlowType: 'operational' },
+  { id: 'cat-7-1', code: '7.1', name: 'Fornecedores', type: 'expense', parentId: 'cat-7-0', cashFlowType: 'operational' },
+  { id: 'cat-7-2', code: '7.2', name: 'Matéria-Prima', type: 'expense', parentId: 'cat-7-0', cashFlowType: 'operational' },
+  { id: 'cat-7-3', code: '7.3', name: 'Transporte e Fretes', type: 'expense', parentId: 'cat-7-0', cashFlowType: 'operational' },
+  { id: 'cat-7-4', code: '7.4', name: 'Manutenção de Equipamentos', type: 'expense', parentId: 'cat-7-0', cashFlowType: 'operational' }
 ];
 
 // --- SEED TRANSACTION GENERATOR ---
