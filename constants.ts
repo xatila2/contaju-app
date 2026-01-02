@@ -75,7 +75,20 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-8-0', code: '8.0', name: 'Despesas Financeiras', type: 'expense', isSystemDefault: true, cashFlowType: 'financial' },
   { id: 'cat-8-1', code: '8.1', name: 'Juros Pagos', type: 'expense', parentId: 'cat-8-0', cashFlowType: 'financial' },
   { id: 'cat-8-2', code: '8.2', name: 'Multas e Juros', type: 'expense', parentId: 'cat-8-0', cashFlowType: 'financial' },
-  { id: 'cat-8-3', code: '8.3', name: 'Tarifas Bancárias (Extra)', type: 'expense', parentId: 'cat-8-0', cashFlowType: 'financial' }
+  { id: 'cat-8-3', code: '8.3', name: 'Tarifas Bancárias (Extra)', type: 'expense', parentId: 'cat-8-0', cashFlowType: 'financial' },
+
+  // 9. INVESTIMENTOS (CAPEX)
+  { id: 'cat-9-0', code: '9.0', name: 'Investimentos (CAPEX)', type: 'expense', isSystemDefault: true, cashFlowType: 'investment' },
+  { id: 'cat-9-1', code: '9.1', name: 'Aquisição de Máquinas', type: 'expense', parentId: 'cat-9-0', cashFlowType: 'investment' },
+  { id: 'cat-9-2', code: '9.2', name: 'Compra de Imóveis', type: 'expense', parentId: 'cat-9-0', cashFlowType: 'investment' },
+  { id: 'cat-9-3', code: '9.3', name: 'Móveis e Utensílios', type: 'expense', parentId: 'cat-9-0', cashFlowType: 'investment' },
+
+  // 10. FINANCIAMENTOS
+  { id: 'cat-10-0', code: '10.0', name: 'Financiamentos', type: 'income', isSystemDefault: true, cashFlowType: 'financing' },
+  { id: 'cat-10-1', code: '10.1', name: 'Empréstimos Bancários', type: 'income', parentId: 'cat-10-0', cashFlowType: 'financing' },
+  { id: 'cat-10-2', code: '10.2', name: 'Pagamento de Empréstimos', type: 'expense', parentId: 'cat-10-0', cashFlowType: 'financing' },
+  { id: 'cat-10-3', code: '10.3', name: 'Distribuição de Lucros', type: 'expense', parentId: 'cat-10-0', cashFlowType: 'financing' },
+  { id: 'cat-10-4', code: '10.4', name: 'Aporte de Capital', type: 'income', parentId: 'cat-10-0', cashFlowType: 'financing' }
 ];
 
 // --- SEED TRANSACTION GENERATOR ---
